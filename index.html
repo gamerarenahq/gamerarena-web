@@ -1,0 +1,563 @@
+'use client'
+
+import { useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee } from 'lucide-react';
+
+// --- CONFIGURATION & MENU ---
+const SYSTEMS = [
+  { id: 'PC1', type: 'PC', icon: Monitor }, { id: 'PC2', type: 'PC', icon: Monitor },
+  { id: 'PS1', type: 'PS5', icon: Gamepad2 }, { id: 'PS2', type: 'PS5', icon: Gamepad2 },
+  { id: 'PS3', type: 'PS5', icon: Gamepad2 }, { id: 'SIM1', type: 'Racing Sim', icon: Car },
+];
+
+const CATEGORIES = ['Burgers & Meals', 'Fries & Snacks', 'Beverages', 'Mocktails', 'Chips'];
+
+const INITIAL_CAFE_MENU = [
+  // Burgers & Meals
+  { id: 'bg1', name: 'THM Classic Veg Burger', price: 120, category: 'Burgers & Meals' },
+  { id: 'bg2', name: 'Paneer Makhani Burger', price: 160, category: 'Burgers & Meals' },
+  { id: 'ml1', name: 'Veg Cheese Grilled Sandwich', price: 110, category: 'Burgers & Meals' },
+  { id: 'ml2', name: 'Margherita Pizza (8")', price: 200, category: 'Burgers & Meals' },
+  { id: 'ml3', name: 'Farmhouse Veg Pizza (8")', price: 250, category: 'Burgers & Meals' },
+  
+  // Fries & Snacks
+  { id: 'sn1', name: 'Salted Fries', price: 100, category: 'Fries & Snacks' },
+  { id: 'sn2', name: 'Peri Peri Fries', price: 120, category: 'Fries & Snacks' },
+  { id: 'sn3', name: 'Paneer Nuggets', price: 150, category: 'Fries & Snacks' },
+  { id: 'sn4', name: 'Cheese Garlic Bread', price: 140, category: 'Fries & Snacks' },
+  { id: 'sn5', name: 'Veg Spring Rolls', price: 130, category: 'Fries & Snacks' },
+
+  // Beverages
+  { id: 'bv1', name: 'Cold Coffee', price: 130, category: 'Beverages' },
+  { id: 'bv2', name: 'Oreo Shake', price: 180, category: 'Beverages' },
+  { id: 'bv3', name: 'KitKat Shake', price: 180, category: 'Beverages' },
+  { id: 'bv4', name: 'Peach Iced Tea', price: 120, category: 'Beverages' },
+  { id: 'bv5', name: 'Lemon Iced Tea', price: 110, category: 'Beverages' },
+
+  // Mocktails
+  { id: 'mk1', name: 'Blue Lagoon', price: 150, category: 'Mocktails' },
+  { id: 'mk2', name: 'Virgin Mojito', price: 140, category: 'Mocktails' },
+  { id: 'mk3', name: 'Green Apple Soda', price: 130, category: 'Mocktails' },
+  { id: 'mk4', name: 'Strawberry Margarita', price: 160, category: 'Mocktails' },
+
+  // Chips
+  { id: 'ch1', name: 'Lays Classic Salted', price: 50, category: 'Chips', stock: 12 },
+  { id: 'ch2', name: 'Lays Magic Masala', price: 50, category: 'Chips', stock: 8 },
+  { id: 'ch3', name: 'Doritos Nacho Cheese', price: 80, category: 'Chips', stock: 5 },
+  { id: 'ch4', name: 'Kurkure Masala Munch', price: 40, category: 'Chips', stock: 0 } 
+];
+
+// --- DYNAMIC PRICING LOGIC ---
+function getPrice(cat: string, dur: number, extra: number = 0) {
+  const full = Math.floor(dur); 
+  const half = (dur % 1 !== 0) ? 1 : 0;
+  if (cat === "PC") return (full * 100) + (half * 70);
+  if (cat === "Racing Sim") return (full * 250) + (half * 150);
+  if (cat === "PS5") return (full * (150 + (extra * 100))) + (half * (100 + (extra * 100)));
+  return 0;
+}
+
+function format12Hour(time24: string) {
+  if (!time24) return '';
+  const [hour, minute] = time24.split(':');
+  let h = parseInt(hour, 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12; 
+  return `${h.toString().padStart(2, '0')}:${minute} ${ampm}`;
+}
+
+export default function GamerarenaMasterERP() {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [modal, setModal] = useState<any>(null); 
+  const [tick, setTick] = useState(0);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  
+  const [cafeMenu, setCafeMenu] = useState(INITIAL_CAFE_MENU);
+
+  // Form States
+  const [name, setName] = useState('');
+  const [dur, setDur] = useState(1);
+  const [extra, setExtra] = useState(0);
+  const [time, setTime] = useState('');
+  const [payMethod, setPayMethod] = useState('Cash');
+  const [splitCash, setSplitCash] = useState(0);
+  const [manualTotal, setManualTotal] = useState<number | string>(0);
+  
+  // F&B States
+  const [cart, setCart] = useState<any[]>([]);
+  const [fnbCategory, setFnbCategory] = useState(CATEGORIES[0]);
+
+  // Migration States
+  const [migrateTarget, setMigrateTarget] = useState<any>(null);
+  const [migrateAccruedGame, setMigrateAccruedGame] = useState<number | string>(0);
+  const [migrateDur, setMigrateDur] = useState(1);
+  const [migrateExtra, setMigrateExtra] = useState(0);
+  const [migrateElapsedMins, setMigrateElapsedMins] = useState(0);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+    fetchSessions();
+    const refreshInterval = setInterval(() => { setTick(t => t + 1); fetchSessions(); }, 30000);
+    return () => { clearInterval(clockInterval); clearInterval(refreshInterval); };
+  }, []);
+
+  async function fetchSessions() {
+    const { data, error } = await supabase.from('sales').select('*').in('status', ['Active', 'Hold']);
+    if (error) console.error("Fetch Error:", error);
+    if (data) setSessions(data);
+  }
+
+  const getHoldSessions = (sysId: string) => sessions.filter(s => s.status === 'Hold' && s.method === `Linked:${sysId}`);
+
+  // --- ACTIONS ---
+  const handleCheckIn = async () => {
+    const finalPrice = getPrice(modal.sys.type, dur, extra);
+    await supabase.from('sales').insert({
+      customer: name || 'Guest', system: modal.sys.id, duration: dur, total: finalPrice,
+      status: 'Active', entry_time: format12Hour(time), date: new Date().toLocaleDateString('en-CA'),
+      fnb_total: 0
+    });
+    setModal(null); setName(''); setDur(1); setExtra(0); fetchSessions();
+  };
+
+  const handleCheckout = async () => {
+    const finalTotal = Number(manualTotal);
+    let remCash = payMethod === 'Split Payment' ? splitCash : (payMethod === 'Cash' ? finalTotal : 0);
+    let remUPI = payMethod === 'Split Payment' ? (finalTotal - splitCash) : (payMethod === 'UPI' ? finalTotal : 0);
+    let remTotalToDistribute = finalTotal;
+
+    const activeSession = modal.session;
+    const holdSessions = getHoldSessions(activeSession.system);
+    const sessionsToClose = [...holdSessions, activeSession];
+
+    for (const s of sessionsToClose) {
+      const sExpectedTotal = Number(s.total) + Number(s.fnb_total || 0);
+      const thisRowPaid = Math.min(sExpectedTotal, remTotalToDistribute);
+      remTotalToDistribute -= thisRowPaid;
+
+      let thisCash = Math.min(thisRowPaid, remCash);
+      remCash -= thisCash;
+      let thisUPI = Math.min(thisRowPaid - thisCash, remUPI);
+      remUPI -= thisUPI;
+
+      let sMethodStr = 'Cash';
+      if (thisCash > 0 && thisUPI > 0) sMethodStr = `Split|${thisCash}|${thisUPI}`;
+      else if (thisUPI > 0) sMethodStr = 'UPI';
+
+      await supabase.from('sales').update({ 
+        status: 'Completed', 
+        method: sMethodStr,
+        total: thisRowPaid
+      }).eq('id', s.id);
+    }
+
+    setModal(null); fetchSessions();
+  };
+
+  const handleMigrateSelect = (targetSysId: string) => {
+    const targetObj = SYSTEMS.find(s => s.id === targetSysId);
+
+    const [timeStr, ampm] = modal.session.entry_time.split(' ');
+    let [hrs, mins] = timeStr.split(':');
+    let h = parseInt(hrs);
+    if (ampm === 'PM' && h !== 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    
+    const entryDate = new Date();
+    entryDate.setHours(h, parseInt(mins), 0, 0);
+    const elapsedMins = Math.max(0, (new Date().getTime() - entryDate.getTime()) / 60000);
+    
+    // FIXED: Strictly grab the exact total from the pending session, no dynamic recalculation.
+    const accruedGame = Number(modal.session.total);
+
+    setMigrateTarget(targetObj);
+    setMigrateAccruedGame(accruedGame);
+    setMigrateElapsedMins(Math.round(elapsedMins));
+    setMigrateDur(1); 
+    setMigrateExtra(0);
+    setModal({ ...modal, type: 'migrate_confirm' });
+  };
+
+  const handleMigrateConfirm = async () => {
+    const newSystemPrice = getPrice(migrateTarget.type, migrateDur, migrateExtra);
+    const now = new Date();
+    const newEntryTime = format12Hour(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+
+    await supabase.from('sales')
+      .update({ method: `Linked:${migrateTarget.id}` })
+      .eq('status', 'Hold')
+      .eq('method', `Linked:${modal.session.system}`);
+
+    await supabase.from('sales').update({ 
+      status: 'Hold',
+      method: `Linked:${migrateTarget.id}`, 
+      total: Number(migrateAccruedGame)
+    }).eq('id', modal.session.id);
+
+    await supabase.from('sales').insert({
+      customer: modal.session.customer, system: migrateTarget.id, duration: migrateDur, total: newSystemPrice,
+      status: 'Active', entry_time: newEntryTime, date: new Date().toLocaleDateString('en-CA'), fnb_total: 0
+    });
+    
+    setModal(null); fetchSessions();
+  };
+
+  const handleAddFNB = async () => {
+    const newFnbTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const currentFnbTotal = Number(modal.session.fnb_total || 0);
+    
+    setCafeMenu(prevMenu => prevMenu.map(menuItem => {
+      const inCart = cart.find(c => c.id === menuItem.id);
+      if (inCart && menuItem.stock !== undefined) {
+        return { ...menuItem, stock: menuItem.stock - inCart.qty };
+      }
+      return menuItem;
+    }));
+
+    await supabase.from('sales').update({ fnb_total: currentFnbTotal + newFnbTotal }).eq('id', modal.session.id);
+    setModal(null); setCart([]); fetchSessions();
+  };
+
+  // --- HELPER: TIME LEFT ---
+  function getTimeRemaining(entryTimeStr: string, durationHrs: number) {
+    if (!entryTimeStr) return { text: '', color: 'text-white' };
+    const [timeStr, ampm] = entryTimeStr.split(' ');
+    let [hrs, mins] = timeStr.split(':');
+    let hourNum = parseInt(hrs);
+    if (ampm === 'PM' && hourNum !== 12) hourNum += 12;
+    if (ampm === 'AM' && hourNum === 12) hourNum = 0;
+    
+    const entryDate = new Date();
+    entryDate.setHours(hourNum, parseInt(mins), 0, 0);
+    const timeLeftMins = ((entryDate.getTime() + (durationHrs * 3600000)) - new Date().getTime()) / 60000;
+
+    if (timeLeftMins < 0) return { text: `🚨 ${Math.abs(Math.round(timeLeftMins))}m OVER`, color: 'text-red-500' };
+    if (timeLeftMins <= 10) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-orange-500' };
+    return { text: `⏳ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-[#00D0FF]' };
+  }
+
+  const totalFloorPending = sessions.reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
+  const activeOnly = sessions.filter(s => s.status === 'Active');
+
+  return (
+    <div className="p-4 bg-[#05070A] h-screen w-screen overflow-hidden text-white font-sans flex flex-col">
+      <div className="flex justify-between items-center mb-4 shrink-0">
+        <h1 className="text-3xl font-black tracking-tighter">Live Floor</h1>
+        <div className="flex gap-4">
+          {currentTime && (
+            <div className="text-right bg-[#121824] px-4 py-2 rounded-xl border border-[#1E293B]">
+              <p className="text-gray-500 text-[10px] font-bold uppercase">Local Time</p>
+              <p className="text-white text-2xl font-black tabular-nums tracking-wide">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p>
+            </div>
+          )}
+          <div className="text-right bg-[#121824] px-4 py-2 rounded-xl border border-[#1E293B]">
+            <p className="text-gray-500 text-[10px] font-bold uppercase">Pending Floor</p>
+            <p className="text-[#FF754C] text-2xl font-black tabular-nums">₹{totalFloorPending}</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-3 grid-rows-2 gap-4 flex-1 min-h-0">
+        {SYSTEMS.map(sys => {
+          const s = activeOnly.find(a => a.system === sys.id);
+          const holdSessions = getHoldSessions(sys.id);
+          const holdNames = holdSessions.map(h => h.system).join(', ');
+          
+          const gamingTotal = Number(s?.total || 0);
+          const fnbTotal = Number(s?.fnb_total || 0);
+          const holdTotal = holdSessions.reduce((sum, h) => sum + Number(h.total) + Number(h.fnb_total || 0), 0);
+          const grandTotal = gamingTotal + fnbTotal + holdTotal;
+          
+          const timerInfo = s ? getTimeRemaining(s.entry_time, s.duration) : null;
+
+          return (
+            <div key={sys.id} className={`p-4 rounded-2xl border-2 flex flex-col transition-all ${s ? 'border-[#00D0FF] bg-[#121824]' : 'border-[#1E293B] bg-[#0B0E14]'}`}>
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center gap-2">
+                  <sys.icon className={s ? "text-[#00D0FF]" : "text-gray-500"} size={20}/>
+                  <h3 className="text-xl font-black">{sys.id}</h3>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s ? "bg-[#00D0FF]/20 text-[#00D0FF]" : "bg-[#1E293B] text-gray-500"}`}>{s ? "ACTIVE" : "FREE"}</span>
+              </div>
+
+              {s ? (
+                <div className="flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                       <div>
+                          <div className="flex items-center gap-1 font-bold text-sm"><User size={14} className="text-[#00D0FF]"/> <span className="truncate max-w-[100px]">{s.customer}</span></div>
+                          <div className="flex items-center gap-1 text-gray-400 text-xs mt-0.5"><Clock size={12}/> In: {s.entry_time} ({s.duration}h)</div>
+                       </div>
+                       <div className={`font-black text-sm text-right ${timerInfo?.color}`}>{timerInfo?.text}</div>
+                    </div>
+                    
+                    <div className="p-2 bg-[#0B0E14] rounded-xl border border-[#1E293B]">
+                      {holdTotal > 0 && <div className="flex justify-between text-xs text-orange-400 mb-0.5 font-bold"><span>{holdNames} (Hold):</span><span>₹{holdTotal}</span></div>}
+                      <div className="flex justify-between text-xs text-gray-400 mb-0.5"><span>Current Game:</span><span>₹{gamingTotal}</span></div>
+                      <div className="flex justify-between text-xs text-gray-400"><span>Current F&B:</span><span>₹{fnbTotal}</span></div>
+                      <div className="flex justify-between text-lg font-black mt-1 text-[#FF754C] border-t border-[#1E293B] pt-1">
+                        <span>Total Due:</span><span>₹{grandTotal}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 mt-3">
+                    <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: s, grandTotal, holdTotal, holdNames }); }} className="col-span-2 bg-[#00D0FF] text-black rounded-lg font-bold text-sm hover:bg-white transition-all py-2">Checkout</button>
+                    <button onClick={() => setModal({ type: 'migrate', session: s })} className="flex items-center justify-center bg-[#1A2235] rounded-lg border border-[#2D3748] hover:border-white transition-all"><ArrowRightLeft size={16}/></button>
+                    <button onClick={() => { setCart([]); setFnbCategory(CATEGORIES[0]); setModal({ type: 'fnb', session: s }); }} className="flex items-center justify-center bg-[#1A2235] rounded-lg border border-[#2D3748] hover:border-white transition-all"><Coffee size={16}/></button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <button onClick={() => { 
+                      const n = new Date(); 
+                      setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); 
+                      setModal({ type: 'checkin', sys }); 
+                  }} className="w-full bg-[#1A2235] py-4 rounded-xl border border-[#2D3748] font-bold hover:border-[#00D0FF] hover:text-[#00D0FF] transition-all text-sm flex items-center justify-center gap-2"><Plus size={16}/> New Session</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className={`bg-[#121824] p-6 rounded-3xl w-full ${modal.type === 'fnb' ? 'max-w-3xl' : 'max-w-sm'} border border-[#1E293B] shadow-2xl relative transition-all`}>
+            
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-black">
+                  {modal.type === 'checkin' && `Check In ${modal.sys.id}`}
+                  {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
+                  {modal.type === 'migrate' && `Migrate ${modal.session.system}`}
+                  {modal.type === 'migrate_confirm' && `Shift Setup`}
+                  {modal.type === 'fnb' && `Add F&B Order`}
+                </h2>
+                <button onClick={() => setModal(null)} className="p-2 bg-[#0B0E14] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"><X size={16}/></button>
+            </div>
+            
+            {/* 1. CHECK-IN LOGIC */}
+            {modal.type === 'checkin' && (
+              <div className="space-y-4">
+                <input className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder="Gamer Name" onChange={e => setName(e.target.value)} autoFocus/>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Start Time</label>
+                    <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={time} onChange={e => setTime(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Duration</label>
+                    <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                      <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                      <span className="font-bold text-sm">{dur} Hrs</span>
+                      <button onClick={() => setDur(dur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                    </div>
+                  </div>
+                </div>
+                {modal.sys.type === 'PS5' && (
+                  <div>
+                    <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                    <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                      <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-1"><Minus size={16}/></button>
+                      <span className="font-bold text-sm">{extra} Extra</span>
+                      <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-1"><Plus size={16}/></button>
+                    </div>
+                  </div>
+                )}
+                <div className="pt-4 border-t border-[#1E293B]">
+                  <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>Cost:</span><span className="font-black text-white text-lg">₹{getPrice(modal.sys.type, dur, extra)}</span></div>
+                  <button onClick={handleCheckIn} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-sm hover:bg-white transition-all">Start Session</button>
+                </div>
+              </div>
+            )}
+
+            {/* 2. CHECKOUT LOGIC */}
+            {modal.type === 'checkout' && (
+              <div className="space-y-4">
+                <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] space-y-2 text-sm">
+                  <div className="flex justify-between font-bold border-b border-[#1E293B] pb-2 text-[#00D0FF]">
+                    <span>{modal.session.customer}</span><span>{modal.session.duration} Hrs</span>
+                  </div>
+                  {modal.holdTotal > 0 && <div className="flex justify-between text-orange-400 font-bold"><span>{modal.holdNames} (Hold):</span><span>₹{modal.holdTotal}</span></div>}
+                  <div className="flex justify-between text-gray-400"><span>Current Gaming:</span><span>₹{modal.session.total}</span></div>
+                  <div className="flex justify-between text-gray-400"><span>Current F&B:</span><span>₹{modal.session.fnb_total || 0}</span></div>
+                </div>
+                <div>
+                   <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Final Combined Amount</label>
+                   <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
+                       <div className="px-3 text-[#00D0FF]"><IndianRupee size={18}/></div>
+                       <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => setManualTotal(e.target.value)} />
+                   </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
+                  <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" onChange={e => setPayMethod(e.target.value)}>
+                      <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                  </select>
+                </div>
+                {payMethod === 'Split Payment' && (
+                  <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
+                    <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" onChange={e => setSplitCash(Number(e.target.value))} />
+                    <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
+                  </div>
+                )}
+                <button onClick={handleCheckout} className="w-full bg-[#EF4444] text-white py-3 rounded-xl font-black text-sm hover:bg-red-600 transition-all">Confirm & Close Both</button>
+              </div>
+            )}
+
+            {/* 3A. MIGRATE SELECT LOGIC */}
+            {modal.type === 'migrate' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {SYSTEMS.filter(sys => !activeOnly.find(a => a.system === sys.id)).map(sys => (
+                    <button key={sys.id} onClick={() => handleMigrateSelect(sys.id)} className="w-full py-3 bg-[#1A2235] rounded-xl font-bold text-sm border border-[#2D3748] hover:border-[#00D0FF] hover:text-[#00D0FF] transition-all">
+                      Move to {sys.id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3B. MIGRATE CONFIRM LOGIC */}
+            {modal.type === 'migrate_confirm' && migrateTarget && (
+              <div className="space-y-4">
+                <div className="bg-[#0B0E14] p-3 rounded-xl border border-[#2D3748] text-xs text-gray-400">
+                  Moving <span className="text-white font-bold">{modal.session.customer}</span> to <span className="text-[#00D0FF] font-bold">{migrateTarget.id}</span>.<br/>
+                  Played for <span className="text-white font-bold">{migrateElapsedMins} mins</span> on {modal.session.system}.
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Accrued Game (₹)</label>
+                    <input type="number" className="w-full bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold text-sm" value={migrateAccruedGame} onChange={e => setMigrateAccruedGame(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Accrued F&B (₹)</label>
+                    <input type="number" className="w-full bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] outline-none font-bold text-sm text-gray-500 cursor-not-allowed" value={modal.session.fnb_total || 0} readOnly />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">New Duration</label>
+                    <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                      <button onClick={() => setMigrateDur(Math.max(0.5, migrateDur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                      <span className="font-bold text-sm">{migrateDur} Hrs</span>
+                      <button onClick={() => setMigrateDur(migrateDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                    </div>
+                  </div>
+                  {migrateTarget.type === 'PS5' && (
+                    <div>
+                      <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Ctrl</label>
+                      <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                        <button onClick={() => setMigrateExtra(Math.max(0, migrateExtra - 1))} className="p-1"><Minus size={16}/></button>
+                        <span className="font-bold text-sm">{migrateExtra}</span>
+                        <button onClick={() => setMigrateExtra(Math.min(3, migrateExtra + 1))} className="p-1"><Plus size={16}/></button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="pt-4 border-t border-[#1E293B]">
+                  <div className="flex justify-between text-gray-400 mb-3 text-sm">
+                    <span>New Combined Bill:</span>
+                    <span className="font-black text-white text-lg">
+                      ₹{Number(migrateAccruedGame) + Number(modal.session.fnb_total || 0) + getPrice(migrateTarget.type, migrateDur, migrateExtra)}
+                    </span>
+                  </div>
+                  <button onClick={handleMigrateConfirm} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-sm hover:bg-white transition-all">Freeze Old & Start New</button>
+                </div>
+              </div>
+            )}
+
+            {/* 4. EXPANDED F&B LOGIC WITH INVENTORY */}
+            {modal.type === 'fnb' && (
+              <div className="flex flex-col md:flex-row gap-6">
+                
+                {/* Left Side: Categories & Menu Items */}
+                <div className="flex-1 space-y-4">
+                  <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                    {CATEGORIES.map(cat => (
+                      <button 
+                        key={cat} 
+                        onClick={() => setFnbCategory(cat)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${fnbCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                     {cafeMenu.filter(item => item.category === fnbCategory).map(item => {
+                       const inCart = cart.find(c => c.id === item.id);
+                       const qty = inCart ? inCart.qty : 0;
+                       
+                       // Inventory constraints
+                       const hasStockLimit = item.stock !== undefined;
+                       const isOutOfStock = hasStockLimit && item.stock === 0;
+                       const isAtMaxCapacity = hasStockLimit && qty >= (item.stock as number);
+
+                       return (
+                         <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30' : 'bg-[#0B0E14] border-[#2D3748]'}`}>
+                            <div className="pr-2">
+                              <p className={`font-bold text-sm leading-tight mb-1 ${isOutOfStock ? 'text-gray-600' : 'text-white'}`}>{item.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-[#00D0FF] font-bold">₹{item.price}</p>
+                                {hasStockLimit && (
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-md ${isOutOfStock ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
+                                    {isOutOfStock ? 'Out of Stock' : `${item.stock} left`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {isOutOfStock ? (
+                               <div className="px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-xs font-bold">Empty</div>
+                            ) : qty > 0 ? (
+                              <div className="flex items-center gap-2 bg-[#1A2235] px-2 py-1 rounded-lg shrink-0">
+                                 <button onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty - 1} : c).filter(c => c.qty > 0))}><Minus size={14}/></button>
+                                 <span className="font-bold text-sm w-4 text-center">{qty}</span>
+                                 <button disabled={isAtMaxCapacity} onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c))} className={`transition-all ${isAtMaxCapacity ? 'opacity-20 cursor-not-allowed' : ''}`}><Plus size={14}/></button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setCart([...cart, { ...item, qty: 1 }])} className="px-4 py-2 bg-[#1A2235] rounded-lg text-xs font-bold hover:bg-[#00D0FF] hover:text-black shrink-0 transition-all">Add</button>
+                            )}
+                         </div>
+                       )
+                     })}
+                  </div>
+                </div>
+
+                {/* Right Side: Cart Summary */}
+                <div className="w-full md:w-[250px] bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] flex flex-col justify-between shrink-0">
+                  <div>
+                    <h3 className="font-black text-gray-400 text-sm uppercase border-b border-[#1E293B] pb-2 mb-3">Current Order</h3>
+                    {cart.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic text-center py-4">No items added yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar">
+                        {cart.map(c => (
+                          <div key={c.id} className="flex justify-between text-xs text-gray-300">
+                            <span>{c.qty}x {c.name}</span>
+                            <span className="font-bold">₹{c.price * c.qty}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="pt-4 mt-4 border-t border-[#1E293B]">
+                    <div className="flex justify-between text-gray-400 mb-3 text-sm">
+                      <span>Total:</span>
+                      <span className="font-black text-white text-xl">₹{cart.reduce((sum, item) => sum + (item.price * item.qty), 0)}</span>
+                    </div>
+                    <button onClick={handleAddFNB} disabled={cart.length === 0} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">Add to Gamer Tab</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,10 @@
+export const MENU_ITEMS = [
+  { id: 'spec_tt', name: "Tikki Tango Meal (W/O)", category: "Burgers & Meals", cost: 129.0, price: 175.0 },
+  { id: 'spec_pp', name: "Peri Peri Mini Meal (W/O)", category: "Burgers & Meals", cost: 149.0, price: 205.0 },
+  { id: 'spec_pan', name: "Paneer Pataka Meal (W/O)", category: "Burgers & Meals", cost: 149.0, price: 205.0 },
+  { id: 'spec_bc', name: "Big Crunch Meal (W/O)", category: "Burgers & Meals", cost: 159.0, price: 215.0 },
+  { id: 'fry_s', name: "Salted French Fries", category: "Fries & Snacks", cost: 120.0, price: 140.0 },
+  { id: 'fry_pp', name: "Peri-Peri French Fries", category: "Fries & Snacks", cost: 150.0, price: 160.0 },
+  { id: 'fry_cg', name: "Chilly Garlic French Fries", category: "Fries & Snacks", cost: 160.0, price: 170.0 },
+  { id: 'fry_ch', name: "Cheesy Fries", category: "Fries & Snacks", cost: 170.0, price: 180.0 },
+];
