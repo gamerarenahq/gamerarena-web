@@ -2,25 +2,21 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy } from 'lucide-react';
+import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag } from 'lucide-react';
 
-function formatINR(num: number) {
-  return Math.round(num || 0).toLocaleString('en-IN');
-}
+function formatINR(num: number) { return Math.round(num || 0).toLocaleString('en-IN'); }
 
 function getTodayString() {
   const d = new Date();
   const options = { timeZone: 'Asia/Kolkata', year: 'numeric' as const, month: '2-digit' as const, day: '2-digit' as const };
-  const formatter = new Intl.DateTimeFormat('en-CA', options);
-  return formatter.format(d);
+  return new Intl.DateTimeFormat('en-CA', options).format(d);
 }
 
 function getFormattedDateForReport() {
   const d = new Date();
   const day = d.getDate();
   const suffix = (day % 10 === 1 && day !== 11) ? "st" : (day % 10 === 2 && day !== 12) ? "nd" : (day % 10 === 3 && day !== 13) ? "rd" : "th";
-  const month = d.toLocaleString('en-US', { month: 'long' });
-  return `${day}${suffix} ${month}`;
+  return `${day}${suffix} ${d.toLocaleString('en-US', { month: 'long' })}`;
 }
 
 const SYSTEMS = [
@@ -52,8 +48,7 @@ function format12Hour(time24: string) {
   const [hour, minute] = time24.split(':');
   let h = parseInt(hour, 10);
   const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12; 
-  return `${h.toString().padStart(2, '0')}:${minute} ${ampm}`;
+  return `${(h % 12 || 12).toString().padStart(2, '0')}:${minute} ${ampm}`;
 }
 
 function parse12HourToDate(time12: string) {
@@ -75,23 +70,19 @@ const playAlertSound = () => {
     osc1.type = 'triangle'; osc1.frequency.setValueAtTime(600, audioCtx.currentTime); 
     gain1.gain.setValueAtTime(0.1, audioCtx.currentTime); 
     osc1.start(); osc1.stop(audioCtx.currentTime + 0.2); 
-    setTimeout(() => {
-      const osc2 = audioCtx.createOscillator(); const gain2 = audioCtx.createGain();
-      osc2.connect(gain2); gain2.connect(audioCtx.destination);
-      osc2.type = 'triangle'; osc2.frequency.setValueAtTime(800, audioCtx.currentTime);
-      gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      osc2.start(); osc2.stop(audioCtx.currentTime + 0.3);
-    }, 300);
-  } catch (error) { console.warn("Audio alert blocked.", error); }
+  } catch (error) { console.warn("Audio alert blocked."); }
 };
 
 export default function GamerarenaMasterERP() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  
   const [sessions, setSessions] = useState<any[]>([]);
   const [modal, setModal] = useState<any>(null); 
   const [tick, setTick] = useState(0);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-
+  
   const [cafeMenu, setCafeMenu] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   
@@ -104,16 +95,22 @@ export default function GamerarenaMasterERP() {
   const [splitCash, setSplitCash] = useState(0);
   const [manualTotal, setManualTotal] = useState<number | string>(0);
   const [extendDur, setExtendDur] = useState(0.5);
+  const [editExtra, setEditExtra] = useState(0);
   const [editTime24, setEditTime24] = useState('');
   
   const [cart, setCart] = useState<any[]>([]);
   const [fnbCategory, setFnbCategory] = useState('');
   const [fnbPayMethod, setFnbPayMethod] = useState('Cash');
   const [fnbSplitCash, setFnbSplitCash] = useState(0);
-
+  
   const [transferTargetSysId, setTransferTargetSysId] = useState('');
   const [migrateDur, setMigrateDur] = useState(1);
   const [migrateExtra, setMigrateExtra] = useState(0);
+
+  const [miscDesc, setMiscDesc] = useState('');
+  const [miscAmount, setMiscAmount] = useState<number | string>('');
+  const [miscPayMethod, setMiscPayMethod] = useState('Cash');
+  const [miscSplitCash, setMiscSplitCash] = useState(0);
 
   const notifiedRef = useRef(new Set<number>());
 
@@ -129,10 +126,8 @@ export default function GamerarenaMasterERP() {
     if (!currentTime || sessions.length === 0) return;
     sessions.filter(s => s.status === 'Active').forEach(s => {
        if (!s.entry_time) return;
-       const entryDate = parse12HourToDate(s.entry_time);
-       const endTime = entryDate.getTime() + (s.duration * 3600000);
+       const endTime = parse12HourToDate(s.entry_time).getTime() + (s.duration * 3600000);
        const timeLeftMins = (endTime - currentTime.getTime()) / 60000;
-       
        if (timeLeftMins <= 5.05 && timeLeftMins > 0 && !notifiedRef.current.has(s.id)) {
          notifiedRef.current.add(s.id); playAlertSound();
        }
@@ -140,8 +135,8 @@ export default function GamerarenaMasterERP() {
   }, [currentTime, sessions]);
 
   async function fetchSessions() {
-    const { data: activeData, error: activeError } = await supabase.from('sales').select('*').in('status', ['Active', 'Hold', 'Reserved']);
-    if (!activeError && activeData) setSessions(activeData); 
+    const { data: activeData } = await supabase.from('sales').select('*').in('status', ['Active', 'Hold', 'Reserved']);
+    if (activeData) setSessions(activeData); 
   }
 
   async function fetchInventory() {
@@ -161,45 +156,33 @@ export default function GamerarenaMasterERP() {
   const handleCheckIn = async () => {
     if (isProcessing) return; setIsProcessing(true);
     const finalPrice = getPrice(modal.sys.type, dur, extra);
-    const payload = {
-      customer: name || 'Guest', system: modal.sys.id, duration: dur, total: finalPrice, 
-      status: (isBookingMode || modal.hasActive) ? 'Reserved' : 'Active',
-      entry_time: format12Hour(time), date: getTodayString(), fnb_total: 0, method: 'Pending', fnb_items: ""
-    };
-    const { error } = await supabase.from('sales').insert([payload]);
-    if (error) alert(`Check-in Failed!\nError: ${error.message}`); 
-    else { setModal(null); setName(''); setDur(1); setExtra(0); await fetchSessions(); }
-    setIsProcessing(false);
+    const payload = { customer: name || 'Guest', system: modal.sys.id, duration: dur, total: finalPrice, status: (isBookingMode || modal.hasActive) ? 'Reserved' : 'Active', entry_time: format12Hour(time), date: getTodayString(), fnb_total: 0, method: 'Pending', fnb_items: "" };
+    await supabase.from('sales').insert([payload]);
+    setModal(null); setName(''); setDur(1); setExtra(0); await fetchSessions(); setIsProcessing(false);
   };
 
   const handleStartReservation = async (id: number) => {
     if (isProcessing) return; setIsProcessing(true);
     const now = new Date();
-    const newEntryTime = format12Hour(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
-    await supabase.from('sales').update({ status: 'Active', entry_time: newEntryTime }).eq('id', id);
-    await fetchSessions();
-    setIsProcessing(false);
+    await supabase.from('sales').update({ status: 'Active', entry_time: format12Hour(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`) }).eq('id', id);
+    await fetchSessions(); setIsProcessing(false);
   };
 
   const handleCancelReservation = async (id: number) => {
     if (!window.confirm("Cancel this booking?")) return;
     if (isProcessing) return; setIsProcessing(true);
     await supabase.from('sales').delete().eq('id', id);
-    await fetchSessions();
-    setIsProcessing(false);
+    await fetchSessions(); setIsProcessing(false);
   };
 
   const handleExtend = async () => {
     if (isProcessing) return; setIsProcessing(true);
-    if (!isSessionValid(modal.session.id)) { alert("Session closed!"); setModal(null); await fetchSessions(); setIsProcessing(false); return; }
-    const s = modal.session;
-    const currentExtra = getExtraFromTotal(modal.sys.type, s.duration, Number(s.total));
-    const newDur = s.duration + extendDur;
-    const newTotal = getPrice(modal.sys.type, newDur, currentExtra);
-    notifiedRef.current.delete(s.id);
-    await supabase.from('sales').update({ duration: newDur, total: newTotal }).eq('id', s.id);
-    setModal(null); await fetchSessions();
-    setIsProcessing(false);
+    if (!isSessionValid(modal.session.id)) { setModal(null); await fetchSessions(); setIsProcessing(false); return; }
+    const newDur = modal.session.duration + extendDur;
+    const newTotal = getPrice(modal.sys.type, newDur, editExtra);
+    notifiedRef.current.delete(modal.session.id);
+    await supabase.from('sales').update({ duration: newDur, total: newTotal }).eq('id', modal.session.id);
+    setModal(null); await fetchSessions(); setIsProcessing(false);
   };
 
   const handleEditTime = async () => {
@@ -214,22 +197,21 @@ export default function GamerarenaMasterERP() {
     const finalTotal = Number(manualTotal);
     let remCash = payMethod === 'Split Payment' ? splitCash : (payMethod === 'Cash' ? finalTotal : 0);
     let remUPI = payMethod === 'Split Payment' ? (finalTotal - splitCash) : (payMethod === 'UPI' ? finalTotal : 0);
-    let remTotalToDistribute = finalTotal;
+    
     const sessionsToClose = [...getHoldSessions(modal.session.id), modal.session];
 
     for (const s of sessionsToClose) {
       const sExpectedTotal = Number(s.total) + Number(s.fnb_total || 0);
-      const thisRowPaid = Math.min(sExpectedTotal, remTotalToDistribute);
-      remTotalToDistribute -= thisRowPaid;
-
-      let thisCash = Math.min(thisRowPaid, remCash); remCash -= thisCash;
-      let thisUPI = Math.min(thisRowPaid - thisCash, remUPI); remUPI -= thisUPI;
+      let thisCash = Math.min(sExpectedTotal, remCash);
+      remCash -= thisCash;
+      let thisUPI = Math.min(sExpectedTotal - thisCash, remUPI);
+      remUPI -= thisUPI;
 
       let sMethodStr = 'Cash';
       if (thisCash > 0 && thisUPI > 0) sMethodStr = `Split|${thisCash}|${thisUPI}`;
-      else if (thisUPI > 0) sMethodStr = 'UPI';
+      else if (thisUPI > 0 && thisCash === 0) sMethodStr = 'UPI';
 
-      await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: thisRowPaid }).eq('id', s.id);
+      await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: sExpectedTotal - Number(s.fnb_total || 0) }).eq('id', s.id);
       notifiedRef.current.delete(s.id);
     }
     setModal(null); await fetchSessions(); setIsProcessing(false);
@@ -241,23 +223,14 @@ export default function GamerarenaMasterERP() {
     if (!targetSys) { setIsProcessing(false); return; }
 
     const activeTargetSession = sessions.find(s => s.status === 'Active' && s.system === transferTargetSysId);
-    const existingHolds = getHoldSessions(modal.session.id);
-    const idsToLink = [modal.session.id, ...existingHolds.map(h => h.id)];
+    const idsToLink = [modal.session.id, ...getHoldSessions(modal.session.id).map(h => h.id)];
 
     if (activeTargetSession) {
       for (const id of idsToLink) await supabase.from('sales').update({ status: 'Hold', method: `LinkedTo:${activeTargetSession.id}` }).eq('id', id);
     } else {
-      const newSystemPrice = getPrice(targetSys.type, migrateDur, migrateExtra);
-      const now = new Date();
-      const newEntryTime = format12Hour(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
-      const { data: newSession, error: insertError } = await supabase.from('sales').insert({ 
-         customer: modal.session.customer, system: targetSys.id, duration: migrateDur, total: newSystemPrice, 
-         status: 'Active', entry_time: newEntryTime, date: getTodayString(), fnb_total: 0, method: 'Pending', fnb_items: "" 
-      }).select().single();
-      
-      if (!insertError && newSession) {
-        for (const id of idsToLink) await supabase.from('sales').update({ status: 'Hold', method: `LinkedTo:${newSession.id}` }).eq('id', id);
-      }
+      const newEntryTime = format12Hour(`${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`);
+      const { data: newSession } = await supabase.from('sales').insert({ customer: modal.session.customer, system: targetSys.id, duration: migrateDur, total: getPrice(targetSys.type, migrateDur, migrateExtra), status: 'Active', entry_time: newEntryTime, date: getTodayString(), fnb_total: 0, method: 'Pending', fnb_items: "" }).select().single();
+      if (newSession) for (const id of idsToLink) await supabase.from('sales').update({ status: 'Hold', method: `LinkedTo:${newSession.id}` }).eq('id', id);
     }
     setModal(null); await fetchSessions(); setIsProcessing(false);
   };
@@ -269,8 +242,7 @@ export default function GamerarenaMasterERP() {
     
     for (const cartItem of cart) {
       if (cartItem.stock !== undefined && cartItem.stock !== null) {
-        const newStock = cartItem.stock - cartItem.qty;
-        await supabase.from('inventory').update({ stock_level: newStock }).eq('id', cartItem.id);
+        await supabase.from('inventory').update({ stock_level: cartItem.stock - cartItem.qty }).eq('id', cartItem.id);
       }
     }
     
@@ -278,47 +250,39 @@ export default function GamerarenaMasterERP() {
     const newItemsStr = newNames.join(" | ");
 
     if (modal.isWalkin) {
-      let walkinMethod = fnbPayMethod;
-      if (fnbPayMethod === 'Split Payment') walkinMethod = `Split|${fnbSplitCash}|${newFnbTotal - fnbSplitCash}`;
+      let walkinMethod = fnbPayMethod === 'Split Payment' ? `Split|${fnbSplitCash}|${newFnbTotal - fnbSplitCash}` : fnbPayMethod;
       await supabase.from('cafe_orders').insert({ date: getTodayString(), items: newItemsStr, total_revenue: newFnbTotal, total_cost: newFnbCost, profit: newFnbTotal - newFnbCost, method: walkinMethod });
     } else {
       const { data: freshSession } = await supabase.from('sales').select('fnb_total, fnb_items').eq('id', modal.session.id).single();
-      const currentFnbTotal = Number(freshSession?.fnb_total || 0);
       await supabase.from('cafe_orders').insert({ date: getTodayString(), items: newItemsStr, total_revenue: newFnbTotal, total_cost: newFnbCost, profit: newFnbTotal - newFnbCost, method: 'Tab' });
+      
       let existingString = freshSession?.fnb_items || "";
       if (Array.isArray(existingString)) existingString = existingString.map((i:any) => i.name ? Array(i.qty || 1).fill(i.name).join(" | ") : "").filter(Boolean).join(" | ");
       else if (typeof existingString === 'string' && existingString.startsWith('[] |')) existingString = existingString.replace('[] |', '').trim();
-      const finalString = existingString ? `${existingString} | ${newItemsStr}` : newItemsStr;
-      await supabase.from('sales').update({ fnb_total: currentFnbTotal + newFnbTotal, fnb_items: finalString }).eq('id', modal.session.id);
+      
+      await supabase.from('sales').update({ fnb_total: Number(freshSession?.fnb_total || 0) + newFnbTotal, fnb_items: existingString ? `${existingString} | ${newItemsStr}` : newItemsStr }).eq('id', modal.session.id);
     }
     setModal(null); setCart([]); await fetchSessions(); await fetchInventory(); setIsProcessing(false);
   };
 
-  function getTimeRemaining(entryTimeStr: string, durationHrs: number) {
-    if (!entryTimeStr) return { text: '', color: 'text-white', isOverdue: false };
-    const entryDate = parse12HourToDate(entryTimeStr);
-    const endTime = entryDate.getTime() + (durationHrs * 3600000);
-    const timeLeftMins = (endTime - new Date().getTime()) / 60000;
-
-    if (timeLeftMins < 0) return { text: `🚨 ${Math.abs(Math.round(timeLeftMins))}m OVER`, color: 'text-red-400 animate-pulse', isOverdue: true };
-    if (timeLeftMins <= 5.05) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-red-400', isOverdue: false };
-    if (timeLeftMins <= 10) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-orange-400', isOverdue: false };
-    return { text: `⏳ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-[#00D0FF]', isOverdue: false };
-  }
+  const handleAddMiscIncome = async () => {
+    if (isProcessing || !miscDesc || !miscAmount) return; 
+    setIsProcessing(true);
+    const amount = Number(miscAmount);
+    let methodStr = miscPayMethod === 'Split Payment' ? `Split|${miscSplitCash}|${amount - miscSplitCash}` : miscPayMethod;
+    await supabase.from('cafe_orders').insert({ date: getTodayString(), items: `[Retail] ${miscDesc}`, total_revenue: amount, total_cost: 0, profit: amount, method: methodStr });
+    setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setIsProcessing(false);
+  };
 
   const getEndOfDaySummary = async () => {
     setIsProcessing(true);
     const todayStr = getTodayString();
-    
-    let eodCash = 0; let eodUPI = 0;
-    let pcRev = 0; let ps5Rev = 0; let simRev = 0;
-    let fnbRev = 0; let fnbProfit = 0;
+    let eodCash = 0; let eodUPI = 0; let pcRev = 0; let ps5Rev = 0; let simRev = 0; let fnbRev = 0; let fnbProfit = 0; let miscRev = 0;
 
     const { data: todaySales } = await supabase.from('sales').select('*').eq('date', todayStr).eq('status', 'Completed');
     if (todaySales) {
       todaySales.forEach(s => {
          const gameCost = Math.max(0, Number(s.total || 0) - Number(s.fnb_total || 0));
-
          if (String(s.system).includes('PC')) pcRev += gameCost;
          else if (String(s.system).includes('PS')) ps5Rev += gameCost;
          else if (String(s.system).includes('SIM')) simRev += gameCost;
@@ -333,9 +297,15 @@ export default function GamerarenaMasterERP() {
     const { data: todayCafe } = await supabase.from('cafe_orders').select('*').eq('date', todayStr);
     if (todayCafe) {
       todayCafe.forEach(c => {
-         fnbRev += Number(c.total_revenue || 0);
-         const cProfit = Number(c.profit);
-         fnbProfit += isNaN(cProfit) ? (Number(c.total_revenue || 0) - Number(c.total_cost || 0)) : cProfit;
+         const itemsStr = String(c.items || '');
+         const isRetail = itemsStr.includes('[Retail]');
+
+         if (isRetail) {
+             miscRev += Number(c.total_revenue || 0);
+         } else if (c.category !== 'Retail' && c.category !== 'Merch') {
+             fnbRev += Number(c.total_revenue || 0);
+             fnbProfit += isNaN(Number(c.profit)) ? (Number(c.total_revenue || 0) - Number(c.total_cost || 0)) : Number(c.profit);
+         }
 
          const m = String(c.method || c.payment_method || '').trim();
          if (m !== 'Tab' && m !== 'tab') {
@@ -345,8 +315,24 @@ export default function GamerarenaMasterERP() {
          }
       });
     }
-    
-    setModal({ type: 'close_day', eodCash, eodUPI, pcRev, ps5Rev, simRev, fnbRev, fnbProfit });
+
+    const cashWithdrawn = Math.floor(eodCash / 100) * 100;
+    const floatForward = eodCash - cashWithdrawn;
+
+    await supabase.from('daily_ledger').upsert({
+      date: todayStr,
+      gaming_revenue: pcRev + ps5Rev + simRev,
+      fnb_revenue: fnbRev,
+      misc_revenue: miscRev,
+      gross_total: pcRev + ps5Rev + simRev + fnbRev + miscRev,
+      cash_collected: eodCash,
+      cash_withdrawn: cashWithdrawn,
+      float_forward: floatForward,
+      upi_collected: eodUPI,
+      upi_status: 'Pending'
+    }, { onConflict: 'date' });
+
+    setModal({ type: 'close_day', eodCash, eodUPI, pcRev, ps5Rev, simRev, fnbRev, fnbProfit, miscRev });
     setIsProcessing(false);
   };
 
@@ -373,46 +359,42 @@ export default function GamerarenaMasterERP() {
      aggregatedFnb = Object.entries(counts).map(([name, qty]) => `${qty}x ${name}`);
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen w-screen bg-[#05070A] text-white items-center justify-center p-4">
+        <form onSubmit={(e) => { e.preventDefault(); if (password === 'Shreenad@0511') setIsAuthenticated(true); else alert('Incorrect Password'); }} 
+              className="bg-[#121824] p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
+            <div className="flex justify-center mb-6"><Lock size={40} className="text-[#00D0FF]"/></div>
+            <h2 className="text-2xl font-black mb-6">Live Floor Access</h2>
+            <input type="password" placeholder="Enter PIN" className="w-full bg-[#0B0E14] p-4 text-center rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold tracking-widest mb-4" value={password} onChange={e => setPassword(e.target.value)} />
+            <button type="submit" className="w-full bg-[#00D0FF] text-black py-4 rounded-xl font-black hover:bg-white transition-all">Unlock POS</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
-      
-      {/* SIDEBAR - LEDGER REMOVED */}
       <div className="w-16 bg-[#0B0E14] border-r border-[#1E293B] flex flex-col items-center py-4 shrink-0 z-10 gap-4">
         <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Live Floor"><Monitor size={20} /></div>
         <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
-        <a href="/vault/analytics" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Analytics"><BarChart3 size={20} /></a>
+        <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
         <div className="max-w-[1600px] mx-auto flex flex-col">
-          
           <div className="flex justify-between items-center mb-4 shrink-0">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                Gamerarena <span className="text-[#00D0FF]">POS</span>
-              </h1>
-            </div>
+            <div><h1 className="text-2xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1></div>
             <div className="flex gap-3 items-center">
-              <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm">
-                <MoonStar size={14} /> Close Day
-              </button>
-              <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setModal({ type: 'fnb', isWalkin: true }); }} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm">
-                <ShoppingCart size={14} /> Direct F&B
-              </button>
+              <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
+              
+              <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setModal({ type: 'fnb', isWalkin: true }); }} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
+              
+              <button onClick={() => setModal({ type: 'misc_income' })} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm"><Tag size={14} /> Misc Income</button>
 
               <div className="h-6 w-px bg-[#1E293B] mx-1"></div>
-
-              {currentTime && (
-                <div className="text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm">
-                  <p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p>
-                  <p className="text-white text-sm font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p>
-                </div>
-              )}
-              <div className="text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm">
-                <p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Pending</p>
-                <p className="text-[#FF754C] text-sm font-black tabular-nums tracking-tight leading-none">₹{totalFloorPending}</p>
-              </div>
+              {currentTime && <div className="text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p><p className="text-white text-sm font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p></div>}
+              <div className="text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Pending</p><p className="text-[#FF754C] text-sm font-black tabular-nums tracking-tight leading-none">₹{totalFloorPending}</p></div>
             </div>
           </div>
           
@@ -427,16 +409,26 @@ export default function GamerarenaMasterERP() {
               const fnbTotal = Number(activeSession?.fnb_total || 0);
               const holdTotal = holdSessions.reduce((sum, h) => sum + Number(h.total) + Number(h.fnb_total || 0), 0);
               const grandTotal = gamingTotal + fnbTotal + holdTotal;
-              const timerInfo = activeSession ? getTimeRemaining(activeSession.entry_time, activeSession.duration) : null;
+              
+              const timerInfo = activeSession ? (() => {
+                 const entryTimeStr = activeSession.entry_time;
+                 const durationHrs = activeSession.duration;
+                 if (!entryTimeStr) return { text: '', color: 'text-white', isOverdue: false };
+                 const endTime = parse12HourToDate(entryTimeStr).getTime() + (durationHrs * 3600000);
+                 const timeLeftMins = (endTime - new Date().getTime()) / 60000;
+                 if (timeLeftMins < 0) return { text: `🚨 ${Math.abs(Math.round(timeLeftMins))}m OVER`, color: 'text-red-400 animate-pulse', isOverdue: true };
+                 if (timeLeftMins <= 5.05) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-red-400', isOverdue: false };
+                 if (timeLeftMins <= 10) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-orange-400', isOverdue: false };
+                 return { text: `⏳ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-[#00D0FF]', isOverdue: false };
+              })() : null;
+              
               const isOverdue = timerInfo?.isOverdue;
 
               return (
                 <div key={sys.id} className={`flex flex-col p-4 rounded-2xl border transition-all duration-300 ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
                   <div className="flex justify-between items-center mb-3 shrink-0">
                     <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}>
-                        <sys.icon size={16}/>
-                      </div>
+                      <div className={`p-1.5 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}><sys.icon size={16}/></div>
                       <h3 className={`text-lg font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>{sys.id}</h3>
                     </div>
                     <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${activeSession ? (isOverdue ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF]/30") : "bg-[#1A2235] text-gray-500 border border-[#2D3748]"}`}>
@@ -448,18 +440,13 @@ export default function GamerarenaMasterERP() {
                     <div className="flex flex-col gap-3">
                         <div className="flex justify-between items-start">
                            <div>
-                              <p className="font-black text-white text-sm truncate flex items-center gap-1.5">
-                                 <User size={12} className={isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}/> 
-                                 {activeSession.customer}
-                              </p>
+                              <p className="font-black text-white text-sm truncate flex items-center gap-1.5"><User size={12} className={isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}/> {activeSession.customer}</p>
                               <div className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold mt-1 group">
                                   <Clock size={10}/> {activeSession.entry_time} <span className="text-[#1E293B]">|</span> {activeSession.duration}h
                                   <button onClick={() => { setEditTime24(`${String(parse12HourToDate(activeSession.entry_time).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time).getMinutes()).padStart(2,'0')}`); setModal({ type: 'edit_time', session: activeSession }); }} className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'hover:text-red-400' : 'hover:text-[#00D0FF]'}`}><Pencil size={10}/></button>
                               </div>
                            </div>
-                           <div className={`text-[11px] font-black bg-black/40 px-2 py-1 rounded-md border border-[#1E293B] ${timerInfo?.color}`}>
-                              {timerInfo?.text}
-                           </div>
+                           <div className={`text-[11px] font-black bg-black/40 px-2 py-1 rounded-md border border-[#1E293B] ${timerInfo?.color}`}>{timerInfo?.text}</div>
                         </div>
                         
                         <div className={`rounded-xl p-2.5 border ${isOverdue ? 'bg-red-950/30 border-red-900/50' : 'bg-[#05070A]/50 border-[#1E293B]'} space-y-1`}>
@@ -472,17 +459,22 @@ export default function GamerarenaMasterERP() {
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>
-                             Checkout & Pay
-                          </button>
+                          <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
                           <div className="grid grid-cols-3 gap-1.5">
                              <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={12}/></button>
-                             <button onClick={() => { setExtendDur(0.5); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Modify Time"><Clock size={12}/></button>
+                             
+                             {/* UPDATED: Open Extend/Modify Modal and initialize current controllers */}
+                             <button onClick={() => { 
+                                setExtendDur(0.5); 
+                                setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total)));
+                                setModal({ type: 'extend', session: activeSession, sys }); 
+                             }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Modify Session">
+                                <Clock size={12}/>
+                             </button>
+                             
                              <button onClick={() => { setCart([]); setModal({ type: 'fnb', session: activeSession }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Add F&B"><Coffee size={12}/></button>
                           </div>
-                          <button onClick={() => { setIsBookingMode(true); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1">
-                             <Plus size={8}/> Future Booking
-                          </button>
+                          <button onClick={() => { setIsBookingMode(true); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
                         </div>
                     </div>
                   ) : (
@@ -516,7 +508,6 @@ export default function GamerarenaMasterERP() {
               );
             })}
           </div>
-          
           <div className="pb-10"></div>
         </div>
       </div>
@@ -530,15 +521,15 @@ export default function GamerarenaMasterERP() {
                   {modal.type === 'checkin' && `Setup ${modal.sys.id}`}
                   {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
                   {modal.type === 'transfer' && `Transfer / Merge`}
-                  {modal.type === 'extend' && `Modify Time`}
+                  {modal.type === 'extend' && `Modify Session`}
                   {modal.type === 'edit_time' && `Edit Start Time`}
                   {modal.type === 'close_day' && `End of Day Report`}
                   {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Add F&B Order`)}
+                  {modal.type === 'misc_income' && `Misc / Retail Income`}
                 </h2>
                 <button onClick={() => setModal(null)} className="p-2 bg-[#0B0E14] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"><X size={16}/></button>
             </div>
             
-            {/* CHECK-IN & RESERVATION */}
             {modal.type === 'checkin' && (
               <div className="space-y-4">
                 {modal.hasActive ? (
@@ -587,11 +578,57 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* 🟢 EXACT TEXT-BASED CLOSE DAY REPORT */}
+            {modal.type === 'misc_income' && (
+               <div className="space-y-4">
+                  <div className="bg-purple-900/20 text-purple-400 p-3 rounded-xl text-xs font-bold mb-2 border border-purple-500/20">
+                     Items logged here are excluded from F&B Profit margins.
+                  </div>
+                  <div>
+                     <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Item Description</label>
+                     <input type="text" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder="e.g., Game CD" value={miscDesc} onChange={e => setMiscDesc(e.target.value)} />
+                  </div>
+                  <div>
+                     <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Sale Amount</label>
+                     <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
+                         <div className="px-3 text-[#00D0FF]"><IndianRupee size={18}/></div>
+                         <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={miscAmount} onChange={e => setMiscAmount(e.target.value)} />
+                     </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
+                    <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={miscPayMethod} onChange={e => setMiscPayMethod(e.target.value)}>
+                        <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                    </select>
+                  </div>
+                  {miscPayMethod === 'Split Payment' && (
+                    <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
+                      <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" onChange={e => setMiscSplitCash(Number(e.target.value))} />
+                      <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(miscAmount) - miscSplitCash)} will be marked UPI.</p>
+                    </div>
+                  )}
+                  <div className="pt-4 border-t border-[#1E293B]">
+                     <button onClick={handleAddMiscIncome} disabled={isProcessing || !miscAmount || !miscDesc} className="w-full bg-purple-500 text-white py-3.5 rounded-xl font-black text-sm hover:bg-purple-400 transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                       Log Income
+                     </button>
+                  </div>
+               </div>
+            )}
+
             {modal.type === 'close_day' && (() => {
                 const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + modal.fnbProfit;
-                const reportText = `Today's income - ${getFormattedDateForReport()}\n\na. Cash - ${formatINR(modal.eodCash)}\nb. UPI -  ${formatINR(modal.eodUPI)}\nc. F&B sale - ${formatINR(modal.fnbRev)}\nd. F&B profit- ${formatINR(modal.fnbProfit)}\n\nA+B-C+D= Total  - ${formatINR(finalTotal)}\n\nBreakup:\nPS5- ${formatINR(modal.ps5Rev)}\nPC- ${formatINR(modal.pcRev)}\nSIM- ${formatINR(modal.simRev)}`;
+                let reportText = `Today's income - ${getFormattedDateForReport()}\n\n`;
+                reportText += `a. Cash - ${formatINR(modal.eodCash)}\n`;
+                reportText += `b. UPI -  ${formatINR(modal.eodUPI)}\n`;
+                reportText += `c. F&B sale - ${formatINR(modal.fnbRev)}\n`;
+                reportText += `d. F&B profit- ${formatINR(modal.fnbProfit)}\n`;
+                if (modal.miscRev > 0) reportText += `e. Retail/Misc - ${formatINR(modal.miscRev)}\n`;
                 
+                reportText += `\n${modal.miscRev > 0 ? 'A+B-C+D(Misc)' : 'A+B-C+D'}= Total  - ${formatINR(finalTotal)}\n\n`;
+                reportText += `Breakup:\n`;
+                reportText += `PS5- ${formatINR(modal.ps5Rev)}\n`;
+                reportText += `PC- ${formatINR(modal.pcRev)}\n`;
+                reportText += `SIM- ${formatINR(modal.simRev)}`;
+
                 return (
                   <div className="space-y-4">
                      <div className="bg-[#0B0E14] border border-[#2D3748] p-5 rounded-2xl font-mono text-sm text-gray-300 whitespace-pre-wrap">
@@ -608,7 +645,6 @@ export default function GamerarenaMasterERP() {
                 );
             })()}
 
-            {/* CHECKOUT WITH SMART AGGREGATED F&B RECEIPT */}
             {modal.type === 'checkout' && (
               <div className="space-y-4">
                 <div className="bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] space-y-2 text-sm">
@@ -658,7 +694,6 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* EDIT TIME */}
             {modal.type === 'edit_time' && (
               <div className="space-y-4">
                 <div>
@@ -671,7 +706,6 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* MODIFY TIME */}
             {modal.type === 'extend' && (
               <div className="space-y-4">
                 <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] space-y-2 text-sm text-center">
@@ -686,14 +720,31 @@ export default function GamerarenaMasterERP() {
                     <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
                   </div>
                 </div>
+                
+                {/* NEW CONTROLLER CONFIRM/MODIFY LOGIC */}
+                {modal.sys.type === 'PS5' && (
+                  <div>
+                    <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Confirm or Modify Controllers</label>
+                    <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                      <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                      <span className="font-bold text-sm">{editExtra} Extra</span>
+                      <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-[#1E293B]">
-                  <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>New Game Cost:</span><span className="font-black text-[#00D0FF] text-lg">₹{getPrice(modal.sys.type, modal.session.duration + extendDur, getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total)))}</span></div>
+                  <div className="flex justify-between text-gray-400 mb-3 text-sm">
+                    <span>New Game Cost:</span>
+                    <span className="font-black text-[#00D0FF] text-lg">
+                      ₹{getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra)}
+                    </span>
+                  </div>
                   <button onClick={handleExtend} disabled={isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Confirm Change</button>
                 </div>
               </div>
             )}
 
-            {/* TRANSFER / MERGE */}
             {modal.type === 'transfer' && (
               <div className="space-y-4">
                 <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] text-xs text-gray-400">
@@ -721,6 +772,17 @@ export default function GamerarenaMasterERP() {
                           <button onClick={() => setMigrateDur(migrateDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
                         </div>
                       </div>
+                      
+                      {SYSTEMS.find(x => x.id === transferTargetSysId)?.type === 'PS5' && (
+                        <div>
+                          <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                          <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                            <button onClick={() => setMigrateExtra(Math.max(0, migrateExtra - 1))} className="p-1"><Minus size={16}/></button>
+                            <span className="font-bold text-sm">{migrateExtra} Extra</span>
+                            <button onClick={() => setMigrateExtra(Math.min(3, migrateExtra + 1))} className="p-1"><Plus size={16}/></button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -728,7 +790,6 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* F&B ORDER MODAL */}
             {modal.type === 'fnb' && (
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-4">
@@ -739,7 +800,15 @@ export default function GamerarenaMasterERP() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                     {cafeMenu.filter(item => item.category === fnbCategory).map(item => {
+                     
+                     {cafeMenu
+                        .filter(item => item.category === fnbCategory)
+                        .sort((a, b) => {
+                           const aOut = (a.stock !== undefined && a.stock !== null && a.stock === 0) ? 1 : 0;
+                           const bOut = (b.stock !== undefined && b.stock !== null && b.stock === 0) ? 1 : 0;
+                           return aOut - bOut;
+                        })
+                        .map(item => {
                          const inCart = cart.find(c => c.id === item.id);
                          const qty = inCart ? inCart.qty : 0;
                          const hasStockLimit = item.stock !== undefined && item.stock !== null;
@@ -747,7 +816,7 @@ export default function GamerarenaMasterERP() {
                          const isAtMaxCapacity = hasStockLimit && qty >= (item.stock as number);
 
                          return (
-                           <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30' : 'bg-[#0B0E14] border-[#2D3748]'}`}>
+                           <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30 opacity-60' : 'bg-[#0B0E14] border-[#2D3748]'}`}>
                               <div className="pr-2">
                                 <p className={`font-bold text-sm leading-tight mb-1 ${isOutOfStock ? 'text-gray-600' : 'text-white'}`}>{item.name}</p>
                                 <div className="flex items-center gap-2">
