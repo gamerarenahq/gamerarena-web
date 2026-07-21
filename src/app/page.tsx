@@ -144,12 +144,10 @@ export default function GamerarenaMasterERP() {
     const { data } = await supabase.from('inventory').select('*');
     if (data) {
       const mappedMenu = data.map(item => ({ id: item.id, name: item.item_name, category: item.category, price: item.selling_price, cost: item.cost_price, stock: item.stock_level }));
-      // Alphabetical sorting applied to the raw menu data
       mappedMenu.sort((a, b) => a.name.localeCompare(b.name));
       setCafeMenu(mappedMenu);
       
       const uniqueCats = Array.from(new Set(mappedMenu.map(item => item.category))) as string[];
-      // Alphabetical sorting applied to the Category tabs
       uniqueCats.sort((a, b) => a.localeCompare(b));
       setCategories(uniqueCats);
       
@@ -431,7 +429,8 @@ export default function GamerarenaMasterERP() {
           const cleanedItems = s.fnb_items.replace(/\[\]\s*\|?/g, '').trim();
           if (cleanedItems) {
             const items = cleanedItems.split('|').map((st: string) => st.trim()).filter(Boolean);
-            items.forEach(itemStr => {
+            // EXPLICIT TYPE ADDED HERE TO SATISFY NEXT.JS STRICT BUILD:
+            items.forEach((itemStr: string) => {
                let pureName = itemStr.replace(/^(\d+x\s*)+/, '').trim();
                const match = itemStr.match(/^(\d+)x/);
                let qty = match ? parseInt(match[1]) : 1;
@@ -730,7 +729,7 @@ export default function GamerarenaMasterERP() {
                </div>
             )}
 
-            {/* END OF DAY REPORT */}
+            {/* END OF DAY REPORT WITH PURE EXACT MATH */}
             {modal.type === 'close_day' && (() => {
                 const cleanFnbProfit = Math.round(modal.fnbProfit);
                 const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + cleanFnbProfit;
