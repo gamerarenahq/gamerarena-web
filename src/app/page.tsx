@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag } from 'lucide-react';
+import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag, Building2, Edit2, Trash2 } from 'lucide-react';
 
 function formatINR(num: number) { return Math.round(num || 0).toLocaleString('en-IN'); }
 
@@ -87,6 +87,7 @@ export default function GamerarenaMasterERP() {
   const [categories, setCategories] = useState<string[]>([]);
   
   const [name, setName] = useState('');
+  const [editName, setEditName] = useState('');
   const [dur, setDur] = useState(1);
   const [extra, setExtra] = useState(0);
   const [time, setTime] = useState('');
@@ -143,9 +144,15 @@ export default function GamerarenaMasterERP() {
     const { data } = await supabase.from('inventory').select('*');
     if (data) {
       const mappedMenu = data.map(item => ({ id: item.id, name: item.item_name, category: item.category, price: item.selling_price, cost: item.cost_price, stock: item.stock_level }));
+      // Alphabetical sorting applied to the raw menu data
+      mappedMenu.sort((a, b) => a.name.localeCompare(b.name));
       setCafeMenu(mappedMenu);
+      
       const uniqueCats = Array.from(new Set(mappedMenu.map(item => item.category))) as string[];
+      // Alphabetical sorting applied to the Category tabs
+      uniqueCats.sort((a, b) => a.localeCompare(b));
       setCategories(uniqueCats);
+      
       if (uniqueCats.length > 0) setFnbCategory(uniqueCats[0]);
     }
   }
@@ -175,11 +182,29 @@ export default function GamerarenaMasterERP() {
     await fetchSessions(); setIsProcessing(false);
   };
 
+  const handleEditSetup = async () => {
+    if (isProcessing) return; setIsProcessing(true);
+    const newTotal = getPrice(modal.sys.type, dur, extra);
+    await supabase.from('sales').update({ customer: editName, duration: dur, total: newTotal }).eq('id', modal.session.id);
+    setModal(null); await fetchSessions(); setIsProcessing(false);
+  };
+
   const handleExtend = async () => {
     if (isProcessing) return; setIsProcessing(true);
     if (!isSessionValid(modal.session.id)) { setModal(null); await fetchSessions(); setIsProcessing(false); return; }
     const newDur = modal.session.duration + extendDur;
-    const newTotal = getPrice(modal.sys.type, newDur, editExtra);
+    
+    const currentExtra = getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total));
+    const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
+    
+    let newTotal = 0;
+    if (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra)) {
+        const addedCost = getPrice(modal.sys.type, extendDur, editExtra);
+        newTotal = Number(modal.session.total) + addedCost;
+    } else {
+        newTotal = getPrice(modal.sys.type, newDur, editExtra);
+    }
+    
     notifiedRef.current.delete(modal.session.id);
     await supabase.from('sales').update({ duration: newDur, total: newTotal }).eq('id', modal.session.id);
     setModal(null); await fetchSessions(); setIsProcessing(false);
@@ -199,9 +224,24 @@ export default function GamerarenaMasterERP() {
     let remUPI = payMethod === 'Split Payment' ? (finalTotal - splitCash) : (payMethod === 'UPI' ? finalTotal : 0);
     
     const sessionsToClose = [...getHoldSessions(modal.session.id), modal.session];
+    
+    const expectedTotal = sessionsToClose.reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
+    let remainingDifference = expectedTotal - finalTotal;
 
     for (const s of sessionsToClose) {
-      const sExpectedTotal = Number(s.total) + Number(s.fnb_total || 0);
+      let sGameTotal = Number(s.total);
+      
+      if (remainingDifference > 0) {
+          const applicableDiscount = Math.min(sGameTotal, remainingDifference);
+          sGameTotal -= applicableDiscount;
+          remainingDifference -= applicableDiscount;
+      } else if (remainingDifference < 0) {
+          sGameTotal += Math.abs(remainingDifference);
+          remainingDifference = 0;
+      }
+
+      const sExpectedTotal = sGameTotal + Number(s.fnb_total || 0);
+      
       let thisCash = Math.min(sExpectedTotal, remCash);
       remCash -= thisCash;
       let thisUPI = Math.min(sExpectedTotal - thisCash, remUPI);
@@ -211,7 +251,7 @@ export default function GamerarenaMasterERP() {
       if (thisCash > 0 && thisUPI > 0) sMethodStr = `Split|${thisCash}|${thisUPI}`;
       else if (thisUPI > 0 && thisCash === 0) sMethodStr = 'UPI';
 
-      await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: sExpectedTotal - Number(s.fnb_total || 0) }).eq('id', s.id);
+      await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: sGameTotal }).eq('id', s.id);
       notifiedRef.current.delete(s.id);
     }
     setModal(null); await fetchSessions(); setIsProcessing(false);
@@ -237,30 +277,57 @@ export default function GamerarenaMasterERP() {
 
   const handleAddFNB = async () => {
     if (isProcessing) return; setIsProcessing(true);
-    const newFnbTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const newFnbCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+    const cleanCart = cart.filter(item => item.price > 0);
     
-    for (const cartItem of cart) {
-      if (cartItem.stock !== undefined && cartItem.stock !== null) {
-        await supabase.from('inventory').update({ stock_level: cartItem.stock - cartItem.qty }).eq('id', cartItem.id);
-      }
-    }
+    const newFnbTotal = cleanCart.reduce((sum, item) => sum + ((item.price || 0) * item.qty), 0);
+    const newFnbCost = cleanCart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
     
-    const newNames: string[] = []; cart.forEach(c => { for(let i=0; i<c.qty; i++) newNames.push(c.name); });
-    const newItemsStr = newNames.join(" | ");
-
     if (modal.isWalkin) {
+      for (const cartItem of cleanCart) {
+        if (cartItem.stock !== undefined && cartItem.stock !== null) {
+          await supabase.from('inventory').update({ stock_level: cartItem.stock - cartItem.qty }).eq('id', cartItem.id);
+        }
+      }
+      const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name}`); });
+      const newItemsStr = newNames.join(" | ");
       let walkinMethod = fnbPayMethod === 'Split Payment' ? `Split|${fnbSplitCash}|${newFnbTotal - fnbSplitCash}` : fnbPayMethod;
       await supabase.from('cafe_orders').insert({ date: getTodayString(), items: newItemsStr, total_revenue: newFnbTotal, total_cost: newFnbCost, profit: newFnbTotal - newFnbCost, method: walkinMethod });
     } else {
-      const { data: freshSession } = await supabase.from('sales').select('fnb_total, fnb_items').eq('id', modal.session.id).single();
-      await supabase.from('cafe_orders').insert({ date: getTodayString(), items: newItemsStr, total_revenue: newFnbTotal, total_cost: newFnbCost, profit: newFnbTotal - newFnbCost, method: 'Tab' });
+      const origCart = (modal.originalCart || []).filter((item: any) => item.price > 0);
+      const oldTotal = origCart.reduce((sum: number, item: any) => sum + ((item.price || 0) * item.qty), 0);
+      const oldCost = origCart.reduce((sum: number, item: any) => sum + ((item.cost || 0) * item.qty), 0);
       
-      let existingString = freshSession?.fnb_items || "";
-      if (Array.isArray(existingString)) existingString = existingString.map((i:any) => i.name ? Array(i.qty || 1).fill(i.name).join(" | ") : "").filter(Boolean).join(" | ");
-      else if (typeof existingString === 'string' && existingString.startsWith('[] |')) existingString = existingString.replace('[] |', '').trim();
-      
-      await supabase.from('sales').update({ fnb_total: Number(freshSession?.fnb_total || 0) + newFnbTotal, fnb_items: existingString ? `${existingString} | ${newItemsStr}` : newItemsStr }).eq('id', modal.session.id);
+      const deltaTotal = newFnbTotal - oldTotal;
+      const deltaCost = newFnbCost - oldCost;
+
+      const deltaItems: Record<string, number> = {};
+      origCart.forEach((c: any) => { deltaItems[c.id] = -(c.qty); });
+      cleanCart.forEach((c: any) => { deltaItems[c.id] = (deltaItems[c.id] || 0) + c.qty; });
+
+      for (const [id, diff] of Object.entries(deltaItems)) {
+        if (diff !== 0) {
+           const item = cafeMenu.find(m => String(m.id) === id || m.name === id);
+           if (item && item.stock !== undefined && item.stock !== null) {
+               await supabase.from('inventory').update({ stock_level: item.stock - diff }).eq('id', item.id);
+           }
+        }
+      }
+
+      const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name}`); });
+      const newItemsStr = newNames.join(" | ");
+
+      if (deltaTotal !== 0) {
+          const deltaLogNames: string[] = [];
+          for (const [id, diff] of Object.entries(deltaItems)) {
+              if (diff !== 0) {
+                  const itemName = cafeMenu.find(m => String(m.id) === id || m.name === id)?.name || id;
+                  deltaLogNames.push(`${diff > 0 ? '+' : ''}${diff}x ${itemName}`);
+              }
+          }
+          await supabase.from('cafe_orders').insert({ date: getTodayString(), items: `[Tab Update] ${deltaLogNames.join(" | ")}`, total_revenue: deltaTotal, total_cost: deltaCost, profit: deltaTotal - deltaCost, method: 'Tab' });
+      }
+
+      await supabase.from('sales').update({ fnb_total: newFnbTotal, fnb_items: newItemsStr }).eq('id', modal.session.id);
     }
     setModal(null); setCart([]); await fetchSessions(); await fetchInventory(); setIsProcessing(false);
   };
@@ -282,15 +349,21 @@ export default function GamerarenaMasterERP() {
     const { data: todaySales } = await supabase.from('sales').select('*').eq('date', todayStr).eq('status', 'Completed');
     if (todaySales) {
       todaySales.forEach(s => {
-         const gameCost = Math.max(0, Number(s.total || 0) - Number(s.fnb_total || 0));
+         const gameCost = Number(s.total || 0); 
+         const grandTotal = gameCost + Number(s.fnb_total || 0);
+         
          if (String(s.system).includes('PC')) pcRev += gameCost;
          else if (String(s.system).includes('PS')) ps5Rev += gameCost;
          else if (String(s.system).includes('SIM')) simRev += gameCost;
 
          const m = String(s.method || '').trim();
-         if (m.startsWith('Split|')) { const parts = m.split('|'); eodCash += Number(parts[1] || 0); eodUPI += Number(parts[2] || 0); } 
-         else if (m === 'Cash') eodCash += Number(s.total || 0); 
-         else if (m === 'UPI') eodUPI += Number(s.total || 0);
+         if (m.startsWith('Split|')) { 
+             const parts = m.split('|'); 
+             eodCash += Number(parts[1] || 0); 
+             eodUPI += Number(parts[2] || 0); 
+         } 
+         else if (m === 'Cash') eodCash += grandTotal; 
+         else if (m === 'UPI') eodUPI += grandTotal;
       });
     }
 
@@ -309,7 +382,11 @@ export default function GamerarenaMasterERP() {
 
          const m = String(c.method || c.payment_method || '').trim();
          if (m !== 'Tab' && m !== 'tab') {
-            if (m.startsWith('Split|')) { const parts = m.split('|'); eodCash += Number(parts[1] || 0); eodUPI += Number(parts[2] || 0); } 
+            if (m.startsWith('Split|')) { 
+                const parts = m.split('|'); 
+                eodCash += Number(parts[1] || 0); 
+                eodUPI += Number(parts[2] || 0); 
+            } 
             else if (m === 'Cash') eodCash += Number(c.total_revenue || 0); 
             else if (m === 'UPI') eodUPI += Number(c.total_revenue || 0);
          }
@@ -339,24 +416,32 @@ export default function GamerarenaMasterERP() {
   const activeOrReserved = sessions.filter(s => ['Active', 'Reserved'].includes(s.status));
   const totalFloorPending = activeOrReserved.filter(s=>s.status==='Active').reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
 
-  let currentFnbHistory: string[] = []; let combinedGamingTotal = 0; let combinedFnbTotal = 0;
-  if (modal?.session) {
-    const sessionsToConsider = ['checkout', 'fnb', 'transfer'].includes(modal.type) ? [...getHoldSessions(modal.session.id), modal.session] : [modal.session];
-    sessionsToConsider.forEach(s => {
-      combinedGamingTotal += Number(s.total || 0); combinedFnbTotal += Number(s.fnb_total || 0);
-      if (s.fnb_items) {
-        let raw = s.fnb_items;
-        if (Array.isArray(raw)) { raw.forEach((i: any) => { for (let k = 0; k < (i.qty || 1); k++) currentFnbHistory.push(i.name); }); } 
-        else if (typeof raw === 'string') { currentFnbHistory.push(...raw.replace('[] |', '').split('|').map(st => st.trim()).filter(Boolean)); }
-      }
-    });
-  }
-
+  let combinedGamingTotal = 0; let combinedFnbTotal = 0;
   let aggregatedFnb: string[] = [];
-  if (['checkout', 'fnb', 'transfer'].includes(modal?.type) && currentFnbHistory.length > 0) {
-     const counts: Record<string, number> = {};
-     currentFnbHistory.forEach(item => counts[item] = (counts[item] || 0) + 1);
-     aggregatedFnb = Object.entries(counts).map(([name, qty]) => `${qty}x ${name}`);
+
+  if (['checkout', 'fnb', 'transfer'].includes(modal?.type) && modal?.session) {
+     const sessionsToConsider = ['checkout', 'fnb', 'transfer'].includes(modal.type) ? [...getHoldSessions(modal.session.id), modal.session] : [modal.session];
+     const finalFnbCounts: Record<string, number> = {};
+     
+     sessionsToConsider.forEach(s => {
+       combinedGamingTotal += Number(s.total || 0); 
+       combinedFnbTotal += Number(s.fnb_total || 0);
+       
+       if (s.fnb_items && typeof s.fnb_items === 'string') {
+          const cleanedItems = s.fnb_items.replace(/\[\]\s*\|?/g, '').trim();
+          if (cleanedItems) {
+            const items = cleanedItems.split('|').map((st: string) => st.trim()).filter(Boolean);
+            items.forEach(itemStr => {
+               let pureName = itemStr.replace(/^(\d+x\s*)+/, '').trim();
+               const match = itemStr.match(/^(\d+)x/);
+               let qty = match ? parseInt(match[1]) : 1;
+
+               finalFnbCounts[pureName] = (finalFnbCounts[pureName] || 0) + qty;
+            });
+          }
+       }
+     });
+     aggregatedFnb = Object.entries(finalFnbCounts).map(([name, qty]) => `${qty}x ${name}`);
   }
 
   if (!isAuthenticated) {
@@ -375,10 +460,12 @@ export default function GamerarenaMasterERP() {
 
   return (
     <div className="flex h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
+      
       <div className="w-16 bg-[#0B0E14] border-r border-[#1E293B] flex flex-col items-center py-4 shrink-0 z-10 gap-4">
         <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Live Floor"><Monitor size={20} /></div>
         <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
         <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
+        <a href="/vault/ledger" className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></a>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
@@ -405,7 +492,8 @@ export default function GamerarenaMasterERP() {
 
               const holdSessions = activeSession ? getHoldSessions(activeSession.id) : [];
               const holdNames = holdSessions.map(h => h.system).join(', ');
-              const gamingTotal = Number(activeSession?.total || 0);
+              
+              const gamingTotal = Number(activeSession?.total || 0); 
               const fnbTotal = Number(activeSession?.fnb_total || 0);
               const holdTotal = holdSessions.reduce((sum, h) => sum + Number(h.total) + Number(h.fnb_total || 0), 0);
               const grandTotal = gamingTotal + fnbTotal + holdTotal;
@@ -460,20 +548,47 @@ export default function GamerarenaMasterERP() {
 
                         <div className="flex flex-col gap-1.5">
                           <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
-                          <div className="grid grid-cols-3 gap-1.5">
+                          
+                          <div className="grid grid-cols-4 gap-1.5">
                              <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={12}/></button>
                              
-                             {/* UPDATED: Open Extend/Modify Modal and initialize current controllers */}
-                             <button onClick={() => { 
-                                setExtendDur(0.5); 
-                                setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total)));
-                                setModal({ type: 'extend', session: activeSession, sys }); 
-                             }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Modify Session">
-                                <Clock size={12}/>
-                             </button>
+                             <button onClick={() => { setEditName(activeSession.customer); setDur(activeSession.duration); setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'edit_setup', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={12}/></button>
+
+                             <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Add Time"><Clock size={12}/></button>
                              
-                             <button onClick={() => { setCart([]); setModal({ type: 'fnb', session: activeSession }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Add F&B"><Coffee size={12}/></button>
+                             <button onClick={() => {
+                                const parsedCart: any[] = [];
+                                if (activeSession.fnb_items && typeof activeSession.fnb_items === 'string') {
+                                    const cleanedStr = activeSession.fnb_items.replace(/\[\]\s*\|?/g, '').trim();
+                                    if (cleanedStr) {
+                                      const items = cleanedStr.split('|').map((s: string) => s.trim()).filter(Boolean);
+                                      items.forEach((itemStr: string) => {
+                                          let pureName = itemStr.replace(/^(\d+x\s*)+/, '').trim();
+                                          const multipliers = [...itemStr.matchAll(/(\d+)x/g)].map(m => parseInt(m[1]));
+                                          let qty = multipliers.length > 0 ? multipliers[multipliers.length - 1] : 1;
+                                          
+                                          const existing = parsedCart.find(p => p.name === pureName || p.id === pureName);
+                                          if (existing) {
+                                              existing.qty += qty;
+                                          } else {
+                                              let menuItem = cafeMenu.find(m => m.name.toLowerCase() === pureName.toLowerCase());
+                                              if(!menuItem) menuItem = cafeMenu.find(m => m.name.toLowerCase().replace(/[^a-z0-9]/g,'') === pureName.toLowerCase().replace(/[^a-z0-9]/g,''));
+                                              if(!menuItem) menuItem = cafeMenu.find(m => pureName.toLowerCase().includes(m.name.toLowerCase().split('/')[0]) || m.name.toLowerCase().includes(pureName.toLowerCase().split('/')[0]));
+                                              
+                                              if (menuItem) {
+                                                  parsedCart.push({ ...menuItem, qty, name: menuItem.name }); 
+                                              } else {
+                                                  parsedCart.push({ id: pureName, name: `⚠️ ${pureName} (Menu Error)`, price: 0, cost: 0, qty });
+                                              }
+                                          }
+                                      });
+                                    }
+                                }
+                                setCart(parsedCart);
+                                setModal({ type: 'fnb', session: activeSession, originalCart: JSON.parse(JSON.stringify(parsedCart)) });
+                             }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit F&B"><Coffee size={12}/></button>
                           </div>
+
                           <button onClick={() => { setIsBookingMode(true); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
                         </div>
                     </div>
@@ -521,10 +636,11 @@ export default function GamerarenaMasterERP() {
                   {modal.type === 'checkin' && `Setup ${modal.sys.id}`}
                   {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
                   {modal.type === 'transfer' && `Transfer / Merge`}
-                  {modal.type === 'extend' && `Modify Session`}
+                  {modal.type === 'extend' && `Extend Session Time`}
+                  {modal.type === 'edit_setup' && `Edit Session Details`}
                   {modal.type === 'edit_time' && `Edit Start Time`}
                   {modal.type === 'close_day' && `End of Day Report`}
-                  {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Add F&B Order`)}
+                  {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Edit F&B Tab`)}
                   {modal.type === 'misc_income' && `Misc / Retail Income`}
                 </h2>
                 <button onClick={() => setModal(null)} className="p-2 bg-[#0B0E14] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"><X size={16}/></button>
@@ -614,16 +730,19 @@ export default function GamerarenaMasterERP() {
                </div>
             )}
 
+            {/* END OF DAY REPORT */}
             {modal.type === 'close_day' && (() => {
-                const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + modal.fnbProfit;
+                const cleanFnbProfit = Math.round(modal.fnbProfit);
+                const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + cleanFnbProfit;
+                
                 let reportText = `Today's income - ${getFormattedDateForReport()}\n\n`;
                 reportText += `a. Cash - ${formatINR(modal.eodCash)}\n`;
                 reportText += `b. UPI -  ${formatINR(modal.eodUPI)}\n`;
                 reportText += `c. F&B sale - ${formatINR(modal.fnbRev)}\n`;
-                reportText += `d. F&B profit- ${formatINR(modal.fnbProfit)}\n`;
+                reportText += `d. F&B profit- ${formatINR(cleanFnbProfit)}\n`;
                 if (modal.miscRev > 0) reportText += `e. Retail/Misc - ${formatINR(modal.miscRev)}\n`;
                 
-                reportText += `\n${modal.miscRev > 0 ? 'A+B-C+D(Misc)' : 'A+B-C+D'}= Total  - ${formatINR(finalTotal)}\n\n`;
+                reportText += `\n${modal.miscRev > 0 ? 'A+B-C+D(Misc)' : 'A+B-C+D'} = Total Net - ${formatINR(finalTotal)}\n\n`;
                 reportText += `Breakup:\n`;
                 reportText += `PS5- ${formatINR(modal.ps5Rev)}\n`;
                 reportText += `PC- ${formatINR(modal.pcRev)}\n`;
@@ -706,44 +825,98 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {modal.type === 'extend' && (
+            {modal.type === 'edit_setup' && (
               <div className="space-y-4">
-                <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] space-y-2 text-sm text-center">
-                  <p className="text-gray-400">Current Duration: <span className="text-white font-bold">{modal.session.duration} Hrs</span></p>
-                  <p className="text-gray-400">Current Game Cost: <span className="text-white font-bold">₹{modal.session.total}</span></p>
+                <div className="bg-red-900/20 text-red-400 p-3 rounded-xl text-xs font-bold mb-2 border border-red-500/20">
+                   Use this only to correct setup mistakes. This will recalculate the entire bill based on these new values.
                 </div>
                 <div>
-                  <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Modify Time (Add / Reduce)</label>
-                  <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                    <button onClick={() => setExtendDur(Math.max(0.5 - modal.session.duration, extendDur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
-                    <span className="font-bold text-sm">{extendDur > 0 ? '+' : ''}{extendDur} Hrs</span>
-                    <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
-                  </div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Player Name</label>
+                  <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={editName} onChange={e => setEditName(e.target.value)} />
                 </div>
-                
-                {/* NEW CONTROLLER CONFIRM/MODIFY LOGIC */}
-                {modal.sys.type === 'PS5' && (
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Confirm or Modify Controllers</label>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Total Duration</label>
                     <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                      <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
-                      <span className="font-bold text-sm">{editExtra} Extra</span>
-                      <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                      <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                      <span className="font-bold text-sm">{dur} Hrs</span>
+                      <button onClick={() => setDur(dur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
                     </div>
                   </div>
-                )}
-
+                  
+                  {modal.sys.type === 'PS5' && (
+                    <div>
+                      <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                      <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                        <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                        <span className="font-bold text-sm">{extra} Extra</span>
+                        <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="pt-4 border-t border-[#1E293B]">
                   <div className="flex justify-between text-gray-400 mb-3 text-sm">
-                    <span>New Game Cost:</span>
-                    <span className="font-black text-[#00D0FF] text-lg">
-                      ₹{getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra)}
-                    </span>
+                    <span>Recalculated Cost:</span>
+                    <span className="font-black text-[#00D0FF] text-lg">₹{getPrice(modal.sys.type, dur, extra)}</span>
                   </div>
-                  <button onClick={handleExtend} disabled={isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Confirm Change</button>
+                  <button onClick={handleEditSetup} disabled={isProcessing || !editName} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Save Corrections</button>
                 </div>
               </div>
             )}
+
+            {modal.type === 'extend' && (() => {
+               const currentExtra = getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total));
+               const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
+               
+               const addedCostPreview = (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra))
+                   ? getPrice(modal.sys.type, extendDur, editExtra)
+                   : getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra) - Number(modal.session.total);
+                   
+               const projectedTotal = Number(modal.session.total) + addedCostPreview;
+
+               return (
+                  <div className="space-y-4">
+                    <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] space-y-2 text-sm text-center">
+                      <p className="text-gray-400">Current Duration: <span className="text-white font-bold">{modal.session.duration} Hrs</span></p>
+                      <p className="text-gray-400">Current Game Cost: <span className="text-white font-bold">₹{Number(modal.session.total)}</span></p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Add Additional Time</label>
+                      <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                        <button onClick={() => setExtendDur(Math.max(0.5, extendDur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                        <span className="font-bold text-sm">+{extendDur} Hrs</span>
+                        <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                      </div>
+                    </div>
+                    
+                    {modal.sys.type === 'PS5' && (
+                      <div>
+                        <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Controllers During Extended Time</label>
+                        <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                          <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                          <span className="font-bold text-sm">{editExtra} Extra</span>
+                          <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-4 border-t border-[#1E293B]">
+                      <div className="flex justify-between text-gray-400 mb-1 text-sm">
+                        <span>Cost for Extension:</span>
+                        <span className="font-bold text-white text-md">+ ₹{addedCostPreview}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-400 mb-3 text-sm">
+                        <span>New Total Cost:</span>
+                        <span className="font-black text-[#00D0FF] text-lg">
+                          ₹{projectedTotal}
+                        </span>
+                      </div>
+                      <button onClick={handleExtend} disabled={isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Confirm Extension</button>
+                    </div>
+                  </div>
+               );
+            })()}
 
             {modal.type === 'transfer' && (
               <div className="space-y-4">
@@ -790,9 +963,20 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
+            {/* F&B MODAL - WITH GHOST CLEANUP */}
             {modal.type === 'fnb' && (
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-4">
+                  
+                  {!modal.isWalkin && (
+                    <div className="flex justify-between items-center mb-2">
+                       <span className="text-xs text-gray-500 font-bold">Editing Tab for: <span className="text-white">{modal.session.customer}</span></span>
+                       <button onClick={() => setCart(cart.filter(c => c.price > 0))} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 flex items-center gap-1">
+                          <Trash2 size={12}/> Clear Ghost Items
+                       </button>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                     {categories.map(cat => (
                       <button key={cat} onClick={() => setFnbCategory(cat)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${fnbCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
@@ -804,9 +988,11 @@ export default function GamerarenaMasterERP() {
                      {cafeMenu
                         .filter(item => item.category === fnbCategory)
                         .sort((a, b) => {
+                           // Keeps Empty Stock at the bottom, but strictly sorts A-Z above it
                            const aOut = (a.stock !== undefined && a.stock !== null && a.stock === 0) ? 1 : 0;
                            const bOut = (b.stock !== undefined && b.stock !== null && b.stock === 0) ? 1 : 0;
-                           return aOut - bOut;
+                           if (aOut !== bOut) return aOut - bOut;
+                           return a.name.localeCompare(b.name);
                         })
                         .map(item => {
                          const inCart = cart.find(c => c.id === item.id);
@@ -840,10 +1026,18 @@ export default function GamerarenaMasterERP() {
                 <div className="w-full md:w-[250px] bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] flex flex-col shrink-0">
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-black text-gray-400 text-[10px] uppercase mb-3">New Cart</h3>
+                      <h3 className="font-black text-gray-400 text-[10px] uppercase mb-3">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
                       {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4">No items added yet.</p> : (
                         <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
-                          {cart.map(c => <div key={c.id} className="flex justify-between text-xs text-gray-300"><span>{c.qty}x {c.name}</span><span className="font-bold">₹{c.price * c.qty}</span></div>)}
+                          {cart.map(c => (
+                            <div key={c.id} className="flex justify-between items-center text-xs text-gray-300">
+                               <span className={c.price === 0 ? 'text-red-400 line-through' : ''}>{c.qty}x {c.name}</span>
+                               <div className="flex items-center gap-2">
+                                  <span className={`font-bold ${c.price === 0 ? 'text-red-400' : ''}`}>₹{(c.price || 0) * c.qty}</span>
+                                  <button onClick={() => setCart(cart.filter(item => item.id !== c.id))} className="text-red-500 hover:text-white transition-colors p-1" title="Remove from tab"><X size={12}/></button>
+                               </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                       {modal.isWalkin && cart.length > 0 && (
@@ -857,9 +1051,9 @@ export default function GamerarenaMasterERP() {
                       )}
                     </div>
                     <div className="pt-4 mt-4 border-t border-[#1E293B]">
-                      <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>Total:</span><span className="font-black text-white text-xl">₹{cart.reduce((sum, item) => sum + (item.price * item.qty), 0)}</span></div>
-                      <button onClick={handleAddFNB} disabled={cart.length === 0 || isProcessing} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">
-                        {isProcessing ? 'Processing...' : (modal.isWalkin ? 'Complete Sale' : 'Add to Gamer Tab')}
+                      <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>Total:</span><span className="font-black text-white text-xl">₹{cart.reduce((sum, item) => sum + ((item.price || 0) * item.qty), 0)}</span></div>
+                      <button onClick={handleAddFNB} disabled={isProcessing || (modal.isWalkin && cart.length === 0)} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">
+                        {isProcessing ? 'Processing...' : (modal.isWalkin ? 'Complete Sale' : 'Save Tab')}
                       </button>
                     </div>
                   </div>

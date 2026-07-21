@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Plus, Minus, Package, X, Trash2, Monitor, Edit3, AlertCircle, BarChart3 } from 'lucide-react';
+import { Plus, Minus, Package, X, Trash2, Monitor, Edit3, AlertCircle, BarChart3, Building2 } from 'lucide-react';
 
 export default function InventoryManager() {
   // Inventory State
@@ -100,11 +100,12 @@ export default function InventoryManager() {
   return (
     <div className="flex h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
       
-      {/* 🟢 UNIFIED SIDEBAR - Ledger Removed */}
+      {/* 🟢 UNIFIED SIDEBAR */}
       <div className="w-16 bg-[#0B0E14] border-r border-[#1E293B] flex flex-col items-center py-4 shrink-0 z-10 gap-4">
         <a href="/" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Live Floor"><Monitor size={20} /></a>
-        <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Inventory Manager"><Package size={20} /></div>
-        <a href="/vault/analytics" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Analytics"><BarChart3 size={20} /></a>
+        <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Inventory"><Package size={20} /></div>
+        <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
+        <a href="/vault/ledger" className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></a>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
