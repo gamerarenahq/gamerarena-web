@@ -451,9 +451,9 @@ export default function GamerarenaMasterERP() {
     return (
       <div className="flex h-screen w-screen bg-[#05070A] text-white items-center justify-center p-4">
         <form onSubmit={(e) => { e.preventDefault(); if (password === 'Shreenad@0511') setIsAuthenticated(true); else alert('Incorrect Password'); }} 
-              className="bg-[#121824] p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
+              className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
             <div className="flex justify-center mb-6"><Lock size={40} className="text-[#00D0FF]"/></div>
-            <h2 className="text-2xl font-black mb-6">Live Floor Access</h2>
+            <h2 className="text-xl sm:text-2xl font-black mb-6">Live Floor Access</h2>
             <input type="password" placeholder="Enter PIN" className="w-full bg-[#0B0E14] p-4 text-center rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold tracking-widest mb-4" value={password} onChange={e => setPassword(e.target.value)} />
             <button type="submit" className="w-full bg-[#00D0FF] text-black py-4 rounded-xl font-black hover:bg-white transition-all">Unlock POS</button>
         </form>
@@ -462,33 +462,52 @@ export default function GamerarenaMasterERP() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
       
-      <div className="w-16 bg-[#0B0E14] border-r border-[#1E293B] flex flex-col items-center py-4 shrink-0 z-10 gap-4">
+      {/* DESKTOP SIDEBAR */}
+      <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4">
         <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Live Floor"><Monitor size={20} /></div>
         <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
         <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
         <a href="/vault/ledger" className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></a>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-        <div className="max-w-[1600px] mx-auto flex flex-col">
-          <div className="flex justify-between items-center mb-4 shrink-0">
-            <div><h1 className="text-2xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1></div>
-            <div className="flex gap-3 items-center">
-              <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
-              
-              <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setModal({ type: 'fnb', isWalkin: true }); }} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
-              
-              <button onClick={() => setModal({ type: 'misc_income' })} className="flex items-center gap-2 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm"><Tag size={14} /> Misc Income</button>
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0B0E14] border-t border-[#1E293B] flex items-center justify-around z-40 px-2 shadow-2xl">
+        <div className="p-2.5 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all" title="Live Floor"><Monitor size={20} /></div>
+        <a href="/vault/inventory" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Inventory"><Package size={20} /></a>
+        <a href="/vault" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-orange-500 rounded-xl border border-[#2D3748]" title="Master Vault"><BarChart3 size={20} /></a>
+        <a href="/vault/ledger" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-emerald-500 rounded-xl border border-[#2D3748]" title="Finance"><Building2 size={20} /></a>
+      </div>
 
-              <div className="h-6 w-px bg-[#1E293B] mx-1"></div>
-              {currentTime && <div className="text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p><p className="text-white text-sm font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p></div>}
-              <div className="text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Pending</p><p className="text-[#FF754C] text-sm font-black tabular-nums tracking-tight leading-none">₹{totalFloorPending}</p></div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 pb-20 md:pb-4">
+        <div className="max-w-[1600px] mx-auto flex flex-col">
+          
+          {/* RESPONSIVE HEADER */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 shrink-0">
+            <div className="flex justify-between items-center w-full sm:w-auto">
+               <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1>
+               <div className="sm:hidden text-right bg-[#121824] px-3 py-1 rounded-lg border border-[#1E293B]">
+                  <p className="text-gray-500 text-[8px] font-black uppercase">Pending</p>
+                  <p className="text-[#FF754C] text-xs font-black">₹{totalFloorPending}</p>
+               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
+              
+              <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setModal({ type: 'fnb', isWalkin: true }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
+              
+              <button onClick={() => setModal({ type: 'misc_income' })} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Tag size={14} /> Misc</button>
+
+              <div className="hidden sm:block h-6 w-px bg-[#1E293B] mx-1"></div>
+              {currentTime && <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p><p className="text-white text-sm font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p></div>}
+              <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Pending</p><p className="text-[#FF754C] text-sm font-black tabular-nums tracking-tight leading-none">₹{totalFloorPending}</p></div>
             </div>
           </div>
           
-          <div className="grid grid-cols-3 gap-4">
+          {/* RESPONSIVE SYSTEM CARDS GRID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {SYSTEMS.map(sys => {
               const activeSession = activeOrReserved.find(a => a.system === sys.id && a.status === 'Active');
               const upcomingBookings = activeOrReserved.filter(a => a.system === sys.id && a.status === 'Reserved').sort((a,b) => parse12HourToDate(a.entry_time).getTime() - parse12HourToDate(b.entry_time).getTime());
@@ -516,11 +535,11 @@ export default function GamerarenaMasterERP() {
               const isOverdue = timerInfo?.isOverdue;
 
               return (
-                <div key={sys.id} className={`flex flex-col p-4 rounded-2xl border transition-all duration-300 ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
+                <div key={sys.id} className={`flex flex-col p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
                   <div className="flex justify-between items-center mb-3 shrink-0">
                     <div className="flex items-center gap-2">
                       <div className={`p-1.5 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}><sys.icon size={16}/></div>
-                      <h3 className={`text-lg font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>{sys.id}</h3>
+                      <h3 className={`text-base sm:text-lg font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>{sys.id}</h3>
                     </div>
                     <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${activeSession ? (isOverdue ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF]/30") : "bg-[#1A2235] text-gray-500 border border-[#2D3748]"}`}>
                       {activeSession ? "ACTIVE" : "FREE"}
@@ -529,15 +548,15 @@ export default function GamerarenaMasterERP() {
 
                   {activeSession ? (
                     <div className="flex flex-col gap-3">
-                        <div className="flex justify-between items-start">
-                           <div>
+                        <div className="flex justify-between items-start gap-2">
+                           <div className="min-w-0 flex-1">
                               <p className="font-black text-white text-sm truncate flex items-center gap-1.5"><User size={12} className={isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}/> {activeSession.customer}</p>
                               <div className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold mt-1 group">
                                   <Clock size={10}/> {activeSession.entry_time} <span className="text-[#1E293B]">|</span> {activeSession.duration}h
-                                  <button onClick={() => { setEditTime24(`${String(parse12HourToDate(activeSession.entry_time).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time).getMinutes()).padStart(2,'0')}`); setModal({ type: 'edit_time', session: activeSession }); }} className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'hover:text-red-400' : 'hover:text-[#00D0FF]'}`}><Pencil size={10}/></button>
+                                  <button onClick={() => { setEditTime24(`${String(parse12HourToDate(activeSession.entry_time).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time).getMinutes()).padStart(2,'0')}`); setModal({ type: 'edit_time', session: activeSession }); }} className={`ml-1 opacity-80 md:opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'hover:text-red-400' : 'hover:text-[#00D0FF]'}`}><Pencil size={10}/></button>
                               </div>
                            </div>
-                           <div className={`text-[11px] font-black bg-black/40 px-2 py-1 rounded-md border border-[#1E293B] ${timerInfo?.color}`}>{timerInfo?.text}</div>
+                           <div className={`text-[10px] sm:text-[11px] font-black bg-black/40 px-2 py-1 rounded-md border border-[#1E293B] shrink-0 ${timerInfo?.color}`}>{timerInfo?.text}</div>
                         </div>
                         
                         <div className={`rounded-xl p-2.5 border ${isOverdue ? 'bg-red-950/30 border-red-900/50' : 'bg-[#05070A]/50 border-[#1E293B]'} space-y-1`}>
@@ -550,14 +569,14 @@ export default function GamerarenaMasterERP() {
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
+                          <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2.5 sm:py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
                           
                           <div className="grid grid-cols-4 gap-1.5">
-                             <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={12}/></button>
+                             <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
                              
-                             <button onClick={() => { setEditName(activeSession.customer); setDur(activeSession.duration); setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'edit_setup', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={12}/></button>
+                             <button onClick={() => { setEditName(activeSession.customer); setDur(activeSession.duration); setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'edit_setup', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={14}/></button>
 
-                             <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={12}/></button>
+                             <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={14}/></button>
                              
                              <button onClick={() => {
                                 const parsedCart: any[] = [];
@@ -589,14 +608,14 @@ export default function GamerarenaMasterERP() {
                                 }
                                 setCart(parsedCart);
                                 setModal({ type: 'fnb', session: activeSession, originalCart: JSON.parse(JSON.stringify(parsedCart)) });
-                             }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit F&B"><Coffee size={12}/></button>
+                             }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit F&B"><Coffee size={14}/></button>
                           </div>
 
-                          <button onClick={() => { setIsBookingMode(true); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
+                          <button onClick={() => { setIsBookingMode(true); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
                         </div>
                     </div>
                   ) : (
-                    <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full py-6 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[140px]">
+                    <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full py-6 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[130px]">
                       <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-2 rounded-full transition-all"><Plus size={16} /></div>
                       <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-xs tracking-wide">Check In / Reserve</span>
                     </button>
@@ -630,12 +649,13 @@ export default function GamerarenaMasterERP() {
         </div>
       </div>
 
+      {/* TOUCH-FRIENDLY RESPONSIVE MODAL OVERLAY */}
       {modal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className={`bg-[#121824] p-6 rounded-3xl w-full ${modal.type === 'fnb' ? 'max-w-4xl' : 'max-w-sm'} border border-[#1E293B] shadow-2xl relative transition-all`}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className={`bg-[#121824] p-4 sm:p-6 rounded-3xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar ${modal.type === 'fnb' ? 'max-w-4xl' : 'max-w-sm sm:max-w-md'} border border-[#1E293B] shadow-2xl relative transition-all`}>
             
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-xl font-black">
                   {modal.type === 'checkin' && `Setup ${modal.sys.id}`}
                   {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
                   {modal.type === 'transfer' && `Transfer / Merge`}
@@ -733,7 +753,7 @@ export default function GamerarenaMasterERP() {
                </div>
             )}
 
-            {/* END OF DAY REPORT WITH PURE EXACT MATH */}
+            {/* END OF DAY REPORT */}
             {modal.type === 'close_day' && (() => {
                 const cleanFnbProfit = Math.round(modal.fnbProfit);
                 const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + cleanFnbProfit;
@@ -753,13 +773,13 @@ export default function GamerarenaMasterERP() {
 
                 return (
                   <div className="space-y-4">
-                     <div className="bg-[#0B0E14] border border-[#2D3748] p-5 rounded-2xl font-mono text-sm text-gray-300 whitespace-pre-wrap">
+                     <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap">
                         {reportText}
                      </div>
 
-                     <div className="grid grid-cols-2 gap-4 pt-2">
-                       <button onClick={() => setModal(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-4 rounded-xl font-bold hover:text-white transition-all">Dismiss</button>
-                       <button onClick={() => { navigator.clipboard.writeText(reportText); alert("Report copied to clipboard!"); }} className="w-full bg-white text-black py-4 rounded-xl font-black hover:bg-gray-200 transition-all flex items-center justify-center gap-2">
+                     <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-2">
+                       <button onClick={() => setModal(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 sm:py-4 rounded-xl font-bold hover:text-white transition-all text-xs sm:text-sm">Dismiss</button>
+                       <button onClick={() => { navigator.clipboard.writeText(reportText); alert("Report copied to clipboard!"); }} className="w-full bg-white text-black py-3.5 sm:py-4 rounded-xl font-black hover:bg-gray-200 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm">
                          <Copy size={16}/> Copy Report
                        </button>
                      </div>
@@ -884,7 +904,6 @@ export default function GamerarenaMasterERP() {
                }
                    
                const projectedTotal = Number(modal.session.total) + addedCostPreview;
-               
                const minAllowedExtend = -(modal.session.duration - 0.5);
 
                return (
@@ -896,9 +915,9 @@ export default function GamerarenaMasterERP() {
                     <div>
                       <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Add / Reduce Time</label>
                       <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                        <button onClick={() => setExtendDur(Math.max(minAllowedExtend, extendDur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                        <button onClick={() => setExtendDur(Math.max(minAllowedExtend, extendDur - 0.5))} className="p-1.5 hover:text-[#00D0FF]"><Minus size={18}/></button>
                         <span className="font-bold text-sm">{extendDur > 0 ? '+' : ''}{extendDur} Hrs</span>
-                        <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                        <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-1.5 hover:text-[#00D0FF]"><Plus size={18}/></button>
                       </div>
                     </div>
                     
@@ -906,9 +925,9 @@ export default function GamerarenaMasterERP() {
                       <div>
                         <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Controllers During This Time</label>
                         <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                          <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                          <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-1.5 hover:text-[#00D0FF]"><Minus size={18}/></button>
                           <span className="font-bold text-sm">{editExtra} Extra</span>
-                          <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                          <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-1.5 hover:text-[#00D0FF]"><Plus size={18}/></button>
                         </div>
                       </div>
                     )}
@@ -979,27 +998,27 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* F&B MODAL - WITH GHOST CLEANUP */}
+            {/* F&B MODAL */}
             {modal.type === 'fnb' && (
-              <div className="flex flex-col md:flex-row gap-6">
+              <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
                 <div className="flex-1 space-y-4">
                   
                   {!modal.isWalkin && (
                     <div className="flex justify-between items-center mb-2">
                        <span className="text-xs text-gray-500 font-bold">Editing Tab for: <span className="text-white">{modal.session.customer}</span></span>
                        <button onClick={() => setCart(cart.filter(c => c.price > 0))} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 flex items-center gap-1">
-                          <Trash2 size={12}/> Clear Ghost Items
+                          <Trash2 size={12}/> Clear Ghosts
                        </button>
                     </div>
                   )}
 
                   <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                     {categories.map(cat => (
-                      <button key={cat} onClick={() => setFnbCategory(cat)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${fnbCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
+                      <button key={cat} onClick={() => setFnbCategory(cat)} className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${fnbCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
                     ))}
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 max-h-[300px] sm:max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
                      
                      {cafeMenu
                         .filter(item => item.category === fnbCategory)
@@ -1031,35 +1050,35 @@ export default function GamerarenaMasterERP() {
 
                          return (
                            <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30 opacity-60' : 'bg-[#0B0E14] border-[#2D3748]'}`}>
-                              <div className="pr-2">
-                                <p className={`font-bold text-sm leading-tight mb-1 ${isOutOfStock ? 'text-gray-600' : 'text-white'}`}>{item.name}</p>
+                              <div className="pr-2 min-w-0">
+                                <p className={`font-bold text-xs sm:text-sm leading-tight mb-1 truncate ${isOutOfStock ? 'text-gray-600' : 'text-white'}`}>{item.name}</p>
                                 <div className="flex items-center gap-2">
                                   <p className="text-xs text-[#00D0FF] font-bold">₹{item.price}</p>
-                                  {hasStockLimit && <span className={`text-[10px] px-2 py-0.5 rounded-md ${isOutOfStock ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>{isOutOfStock ? 'Out of Stock' : `${item.stock} left`}</span>}
+                                  {hasStockLimit && <span className={`text-[9px] px-1.5 py-0.5 rounded ${isOutOfStock ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>{isOutOfStock ? 'Out of Stock' : `${item.stock} left`}</span>}
                                 </div>
                               </div>
-                              {isOutOfStock ? ( <div className="px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-xs font-bold">Empty</div> ) : qty > 0 ? (
-                                <div className="flex items-center gap-2 bg-[#1A2235] px-2 py-1 rounded-lg shrink-0">
-                                   <button onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty - 1} : c).filter(c => c.qty > 0))}><Minus size={14}/></button>
-                                   <span className="font-bold text-sm w-4 text-center">{qty}</span>
-                                   <button disabled={isAtMaxCapacity} onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c))}><Plus size={14}/></button>
+                              {isOutOfStock ? ( <div className="px-2.5 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-[10px] font-bold">Empty</div> ) : qty > 0 ? (
+                                <div className="flex items-center gap-1.5 bg-[#1A2235] px-2 py-1 rounded-lg shrink-0">
+                                   <button onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty - 1} : c).filter(c => c.qty > 0))} className="p-1"><Minus size={14}/></button>
+                                   <span className="font-bold text-xs w-4 text-center">{qty}</span>
+                                   <button disabled={isAtMaxCapacity} onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c))} className="p-1 disabled:opacity-30"><Plus size={14}/></button>
                                 </div>
-                              ) : ( <button onClick={() => setCart([...cart, { ...item, qty: 1 }])} className="px-4 py-2 bg-[#1A2235] rounded-lg text-xs font-bold hover:bg-[#00D0FF] hover:text-black shrink-0 transition-all">Add</button> )}
+                              ) : ( <button onClick={() => setCart([...cart, { ...item, qty: 1 }])} className="px-3 py-1.5 bg-[#1A2235] rounded-lg text-xs font-bold hover:bg-[#00D0FF] hover:text-black shrink-0 transition-all">Add</button> )}
                            </div>
                          )
                      })}
                   </div>
                 </div>
 
-                <div className="w-full md:w-[250px] bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] flex flex-col shrink-0">
+                <div className="w-full lg:w-[260px] bg-[#0B0E14] p-3.5 sm:p-4 rounded-2xl border border-[#2D3748] flex flex-col shrink-0">
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-black text-gray-400 text-[10px] uppercase mb-3">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
+                      <h3 className="font-black text-gray-400 text-[10px] uppercase mb-2 sm:mb-3">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
                       {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4">No items added yet.</p> : (
-                        <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
+                        <div className="space-y-2 max-h-[120px] sm:max-h-[150px] overflow-y-auto custom-scrollbar">
                           {cart.map(c => (
                             <div key={c.id} className="flex justify-between items-center text-xs text-gray-300">
-                               <span className={c.price === 0 ? 'text-red-400 line-through' : ''}>{c.qty}x {c.name}</span>
+                               <span className={`truncate max-w-[120px] ${c.price === 0 ? 'text-red-400 line-through' : ''}`}>{c.qty}x {c.name}</span>
                                <div className="flex items-center gap-2">
                                   <span className={`font-bold ${c.price === 0 ? 'text-red-400' : ''}`}>₹{(c.price || 0) * c.qty}</span>
                                   <button onClick={() => setCart(cart.filter(item => item.id !== c.id))} className="text-red-500 hover:text-white transition-colors p-1" title="Remove from tab"><X size={12}/></button>
@@ -1078,9 +1097,9 @@ export default function GamerarenaMasterERP() {
                         </div>
                       )}
                     </div>
-                    <div className="pt-4 mt-4 border-t border-[#1E293B]">
-                      <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>Total:</span><span className="font-black text-white text-xl">₹{cart.reduce((sum, item) => sum + ((item.price || 0) * item.qty), 0)}</span></div>
-                      <button onClick={handleAddFNB} disabled={isProcessing || (modal.isWalkin && cart.length === 0)} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">
+                    <div className="pt-3 sm:pt-4 mt-3 sm:mt-4 border-t border-[#1E293B]">
+                      <div className="flex justify-between text-gray-400 mb-2 sm:mb-3 text-sm"><span>Total:</span><span className="font-black text-white text-lg sm:text-xl">₹{cart.reduce((sum, item) => sum + ((item.price || 0) * item.qty), 0)}</span></div>
+                      <button onClick={handleAddFNB} disabled={isProcessing || (modal.isWalkin && cart.length === 0)} className="w-full bg-[#00D0FF] text-black py-3 rounded-xl font-black text-xs sm:text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">
                         {isProcessing ? 'Processing...' : (modal.isWalkin ? 'Complete Sale' : 'Save Tab')}
                       </button>
                     </div>
