@@ -196,7 +196,13 @@ export default function GamerarenaMasterERP() {
     const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
     
     let newTotal = 0;
-    if (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra)) {
+    
+    if (extendDur < 0) {
+        // If reducing time, strictly subtract the progressive value of the lost time
+        const normalOld = getPrice(modal.sys.type, modal.session.duration, editExtra);
+        const normalNew = getPrice(modal.sys.type, newDur, editExtra);
+        newTotal = Number(modal.session.total) + (normalNew - normalOld);
+    } else if (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra)) {
         const addedCost = getPrice(modal.sys.type, extendDur, editExtra);
         newTotal = Number(modal.session.total) + addedCost;
     } else {
@@ -429,7 +435,6 @@ export default function GamerarenaMasterERP() {
           const cleanedItems = s.fnb_items.replace(/\[\]\s*\|?/g, '').trim();
           if (cleanedItems) {
             const items = cleanedItems.split('|').map((st: string) => st.trim()).filter(Boolean);
-            // EXPLICIT TYPE ADDED HERE TO SATISFY NEXT.JS STRICT BUILD:
             items.forEach((itemStr: string) => {
                let pureName = itemStr.replace(/^(\d+x\s*)+/, '').trim();
                const match = itemStr.match(/^(\d+)x/);
@@ -553,7 +558,7 @@ export default function GamerarenaMasterERP() {
                              
                              <button onClick={() => { setEditName(activeSession.customer); setDur(activeSession.duration); setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'edit_setup', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={12}/></button>
 
-                             <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Add Time"><Clock size={12}/></button>
+                             <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={12}/></button>
                              
                              <button onClick={() => {
                                 const parsedCart: any[] = [];
@@ -635,7 +640,7 @@ export default function GamerarenaMasterERP() {
                   {modal.type === 'checkin' && `Setup ${modal.sys.id}`}
                   {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
                   {modal.type === 'transfer' && `Transfer / Merge`}
-                  {modal.type === 'extend' && `Extend Session Time`}
+                  {modal.type === 'extend' && `Adjust Session Time`}
                   {modal.type === 'edit_setup' && `Edit Session Details`}
                   {modal.type === 'edit_time' && `Edit Start Time`}
                   {modal.type === 'close_day' && `End of Day Report`}
@@ -868,11 +873,20 @@ export default function GamerarenaMasterERP() {
                const currentExtra = getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total));
                const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
                
-               const addedCostPreview = (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra))
-                   ? getPrice(modal.sys.type, extendDur, editExtra)
-                   : getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra) - Number(modal.session.total);
+               let addedCostPreview = 0;
+               if (extendDur < 0) {
+                   const normalOld = getPrice(modal.sys.type, modal.session.duration, editExtra);
+                   const normalNew = getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra);
+                   addedCostPreview = normalNew - normalOld;
+               } else if (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra)) {
+                   addedCostPreview = getPrice(modal.sys.type, extendDur, editExtra);
+               } else {
+                   addedCostPreview = getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra) - Number(modal.session.total);
+               }
                    
                const projectedTotal = Number(modal.session.total) + addedCostPreview;
+               
+               const minAllowedExtend = -(modal.session.duration - 0.5);
 
                return (
                   <div className="space-y-4">
@@ -881,17 +895,17 @@ export default function GamerarenaMasterERP() {
                       <p className="text-gray-400">Current Game Cost: <span className="text-white font-bold">₹{Number(modal.session.total)}</span></p>
                     </div>
                     <div>
-                      <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Add Additional Time</label>
+                      <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Add / Reduce Time</label>
                       <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                        <button onClick={() => setExtendDur(Math.max(0.5, extendDur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
-                        <span className="font-bold text-sm">+{extendDur} Hrs</span>
+                        <button onClick={() => setExtendDur(Math.max(minAllowedExtend, extendDur - 0.5))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                        <span className="font-bold text-sm">{extendDur > 0 ? '+' : ''}{extendDur} Hrs</span>
                         <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
                       </div>
                     </div>
                     
                     {modal.sys.type === 'PS5' && (
                       <div>
-                        <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Controllers During Extended Time</label>
+                        <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Controllers During This Time</label>
                         <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
                           <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
                           <span className="font-bold text-sm">{editExtra} Extra</span>
@@ -902,8 +916,10 @@ export default function GamerarenaMasterERP() {
 
                     <div className="pt-4 border-t border-[#1E293B]">
                       <div className="flex justify-between text-gray-400 mb-1 text-sm">
-                        <span>Cost for Extension:</span>
-                        <span className="font-bold text-white text-md">+ ₹{addedCostPreview}</span>
+                        <span>{addedCostPreview >= 0 ? 'Cost for Extension:' : 'Deduction / Refund:'}</span>
+                        <span className={`font-bold text-md ${addedCostPreview >= 0 ? 'text-white' : 'text-orange-400'}`}>
+                          {addedCostPreview >= 0 ? '+' : '-'} ₹{Math.abs(addedCostPreview)}
+                        </span>
                       </div>
                       <div className="flex justify-between text-gray-400 mb-3 text-sm">
                         <span>New Total Cost:</span>
@@ -911,7 +927,9 @@ export default function GamerarenaMasterERP() {
                           ₹{projectedTotal}
                         </span>
                       </div>
-                      <button onClick={handleExtend} disabled={isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Confirm Extension</button>
+                      <button onClick={handleExtend} disabled={isProcessing || extendDur === 0} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">
+                        {extendDur >= 0 ? 'Confirm Extension' : 'Confirm Reduction'}
+                      </button>
                     </div>
                   </div>
                );
@@ -962,7 +980,7 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* F&B MODAL - WITH GHOST CLEANUP */}
+            {/* F&B MODAL */}
             {modal.type === 'fnb' && (
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-4">
@@ -987,7 +1005,6 @@ export default function GamerarenaMasterERP() {
                      {cafeMenu
                         .filter(item => item.category === fnbCategory)
                         .sort((a, b) => {
-                           // Keeps Empty Stock at the bottom, but strictly sorts A-Z above it
                            const aOut = (a.stock !== undefined && a.stock !== null && a.stock === 0) ? 1 : 0;
                            const bOut = (b.stock !== undefined && b.stock !== null && b.stock === 0) ? 1 : 0;
                            if (aOut !== bOut) return aOut - bOut;
