@@ -198,7 +198,6 @@ export default function GamerarenaMasterERP() {
     let newTotal = 0;
     
     if (extendDur < 0) {
-        // If reducing time, strictly subtract the progressive value of the lost time
         const normalOld = getPrice(modal.sys.type, modal.session.duration, editExtra);
         const normalNew = getPrice(modal.sys.type, newDur, editExtra);
         newTotal = Number(modal.session.total) + (normalNew - normalOld);
@@ -980,7 +979,7 @@ export default function GamerarenaMasterERP() {
               </div>
             )}
 
-            {/* F&B MODAL */}
+            {/* F&B MODAL - WITH GHOST CLEANUP */}
             {modal.type === 'fnb' && (
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-4">
@@ -1005,17 +1004,30 @@ export default function GamerarenaMasterERP() {
                      {cafeMenu
                         .filter(item => item.category === fnbCategory)
                         .sort((a, b) => {
-                           const aOut = (a.stock !== undefined && a.stock !== null && a.stock === 0) ? 1 : 0;
-                           const bOut = (b.stock !== undefined && b.stock !== null && b.stock === 0) ? 1 : 0;
+                           const aOrig = (modal?.originalCart || []).find((c: any) => c.id === a.id)?.qty || 0;
+                           const bOrig = (modal?.originalCart || []).find((c: any) => c.id === b.id)?.qty || 0;
+                           
+                           const aMax = (a.stock !== undefined && a.stock !== null) ? aOrig + (a.stock as number) : Infinity;
+                           const bMax = (b.stock !== undefined && b.stock !== null) ? bOrig + (b.stock as number) : Infinity;
+
+                           const aOut = aMax === 0 ? 1 : 0;
+                           const bOut = bMax === 0 ? 1 : 0;
+                           
                            if (aOut !== bOut) return aOut - bOut;
                            return a.name.localeCompare(b.name);
                         })
                         .map(item => {
                          const inCart = cart.find(c => c.id === item.id);
                          const qty = inCart ? inCart.qty : 0;
+                         
+                         const originalItem = (modal?.originalCart || []).find((c: any) => c.id === item.id);
+                         const originalQty = originalItem ? originalItem.qty : 0;
+
                          const hasStockLimit = item.stock !== undefined && item.stock !== null;
-                         const isOutOfStock = hasStockLimit && item.stock === 0;
-                         const isAtMaxCapacity = hasStockLimit && qty >= (item.stock as number);
+                         const maxAllowedQty = hasStockLimit ? originalQty + (item.stock as number) : Infinity;
+                         
+                         const isOutOfStock = hasStockLimit && maxAllowedQty === 0;
+                         const isAtMaxCapacity = hasStockLimit && qty >= maxAllowedQty;
 
                          return (
                            <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30 opacity-60' : 'bg-[#0B0E14] border-[#2D3748]'}`}>
