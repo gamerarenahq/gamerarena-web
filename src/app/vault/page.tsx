@@ -320,9 +320,9 @@ export default function MasterVault() {
   if (!isAuthenticated) {
     return (
       <div className="flex h-screen w-screen bg-[#05070A] text-white items-center justify-center p-4">
-        <form onSubmit={(e) => { e.preventDefault(); if (password === 'Vault@2026' || password === 'Vault@0511') setIsAuthenticated(true); else alert('Incorrect Password'); }} className="bg-[#121824] p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
+        <form onSubmit={(e) => { e.preventDefault(); if (password === 'Vault@2026' || password === 'Vault@0511') setIsAuthenticated(true); else alert('Incorrect Password'); }} className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
             <div className="flex justify-center mb-6"><Lock size={40} className="text-orange-500"/></div>
-            <h2 className="text-2xl font-black mb-6">Master Vault Access</h2>
+            <h2 className="text-xl sm:text-2xl font-black mb-6">Master Vault Access</h2>
             <input type="password" placeholder="Enter Vault PIN" className="w-full bg-[#0B0E14] p-4 text-center rounded-xl border border-[#2D3748] focus:border-orange-500 outline-none font-bold tracking-widest mb-4" value={password} onChange={e => setPassword(e.target.value)} />
             <button type="submit" className="w-full bg-orange-500 text-black py-4 rounded-xl font-black hover:bg-white transition-all">Unlock Vault</button>
         </form>
@@ -331,44 +331,55 @@ export default function MasterVault() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
       
-      <div className="w-16 bg-[#0B0E14] border-r border-[#1E293B] flex flex-col items-center py-4 shrink-0 z-10 gap-4">
+      {/* 🟢 UNIFIED DESKTOP SIDEBAR */}
+      <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4">
         <a href="/" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Live Floor"><Monitor size={20} /></a>
         <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
         <div className="p-3 bg-orange-500/20 text-orange-500 border border-orange-500 rounded-xl transition-all shadow-[0_0_15px_rgba(249,115,22,0.2)]" title="Master Vault"><BarChart3 size={20} /></div>
         <a href="/vault/ledger" className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></a>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-        <div className="max-w-7xl mx-auto flex flex-col gap-6">
+      {/* 🟢 MOBILE BOTTOM NAVIGATION BAR */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0B0E14] border-t border-[#1E293B] flex items-center justify-around z-40 px-2 shadow-2xl">
+        <a href="/" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Live Floor"><Monitor size={20} /></a>
+        <a href="/vault/inventory" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Inventory"><Package size={20} /></a>
+        <div className="p-2.5 bg-orange-500/20 text-orange-500 border border-orange-500 rounded-xl transition-all" title="Master Vault"><BarChart3 size={20} /></div>
+        <a href="/vault/ledger" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-emerald-500 rounded-xl border border-[#2D3748]" title="Finance"><Building2 size={20} /></a>
+      </div>
+
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24 md:pb-8">
+        <div className="max-w-7xl mx-auto flex flex-col gap-4 sm:gap-6">
           
+          {/* HEADER & CALENDAR FILTER */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
-            <h1 className="text-3xl font-black tracking-tight flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
               Master <span className="text-orange-500">Analytics</span>
-              {isDataLoading && <span className="text-[10px] text-orange-500 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 ml-2 animate-pulse">Syncing Database...</span>}
+              {isDataLoading && <span className="text-[10px] text-orange-500 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 ml-2 animate-pulse">Syncing...</span>}
             </h1>
             
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
                {timeFilter === 'Custom Dates' && (
-                  <div className="flex items-center gap-2 bg-[#121824] p-1.5 rounded-xl border border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.1)]">
-                     <input type="date" className="bg-[#0B0E14] text-xs font-bold text-gray-300 p-1.5 rounded-lg border border-[#2D3748] outline-none [color-scheme:dark]" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} />
-                     <span className="text-xs text-gray-500 font-bold uppercase">To</span>
-                     <input type="date" className="bg-[#0B0E14] text-xs font-bold text-gray-300 p-1.5 rounded-lg border border-[#2D3748] outline-none [color-scheme:dark]" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} />
+                  <div className="flex items-center gap-2 bg-[#121824] p-1.5 rounded-xl border border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.1)] w-full sm:w-auto">
+                     <input type="date" className="bg-[#0B0E14] text-xs font-bold text-gray-300 p-1.5 rounded-lg border border-[#2D3748] outline-none flex-1 [color-scheme:dark]" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} />
+                     <span className="text-xs text-gray-500 font-bold uppercase px-1">To</span>
+                     <input type="date" className="bg-[#0B0E14] text-xs font-bold text-gray-300 p-1.5 rounded-lg border border-[#2D3748] outline-none flex-1 [color-scheme:dark]" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} />
                   </div>
                )}
                
-               <div className="flex items-center gap-3 bg-[#121824] p-1.5 rounded-xl border border-[#1E293B]">
+               <div className="flex items-center gap-3 bg-[#121824] p-1.5 rounded-xl border border-[#1E293B] w-full sm:w-auto">
                   <Calendar size={16} className="text-gray-400 ml-2"/>
-                  <select className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer pr-2" value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}>
+                  <select className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer pr-2 w-full" value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}>
                     {['Lifetime', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Custom Dates'].map(t => <option key={t} value={t} className="bg-[#121824]">{t}</option>)}
                   </select>
                </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-6 relative overflow-hidden group hover:border-orange-500/50 transition-all">
+          {/* TOP ROW: BALANCES */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+             <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-5 sm:p-6 relative overflow-hidden group hover:border-orange-500/50 transition-all">
                 <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Building2 size={80}/></div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Building2 size={14}/> Bank Balance</h3>
                 {isEditingBank ? (
@@ -379,13 +390,13 @@ export default function MasterVault() {
                   </div>
                 ) : (
                   <div className="flex items-end gap-3 mt-2 z-10 relative">
-                     <span className="text-4xl font-black text-white tracking-tight">₹{formatINR(bankBalance)}</span>
-                     <button onClick={() => { setTempBank(bankBalance.toString()); setIsEditingBank(true); }} className="mb-2 text-gray-500 hover:text-orange-500 transition-colors"><Pencil size={16}/></button>
+                     <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">₹{formatINR(bankBalance)}</span>
+                     <button onClick={() => { setTempBank(bankBalance.toString()); setIsEditingBank(true); }} className="mb-1.5 sm:mb-2 text-gray-500 hover:text-orange-500 transition-colors"><Pencil size={16}/></button>
                   </div>
                 )}
              </div>
 
-             <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-6 relative overflow-hidden group hover:border-emerald-500/50 transition-all">
+             <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-5 sm:p-6 relative overflow-hidden group hover:border-emerald-500/50 transition-all">
                 <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={80}/></div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Wallet size={14}/> Cash at Home</h3>
                 {isEditingCash ? (
@@ -396,56 +407,58 @@ export default function MasterVault() {
                   </div>
                 ) : (
                   <div className="flex items-end gap-3 mt-2 z-10 relative">
-                     <span className="text-4xl font-black text-white tracking-tight">₹{formatINR(cashAtHome)}</span>
-                     <button onClick={() => { setTempCash(cashAtHome.toString()); setIsEditingCash(true); }} className="mb-2 text-gray-500 hover:text-emerald-500 transition-colors"><Pencil size={16}/></button>
+                     <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">₹{formatINR(cashAtHome)}</span>
+                     <button onClick={() => { setTempCash(cashAtHome.toString()); setIsEditingCash(true); }} className="mb-1.5 sm:mb-2 text-gray-500 hover:text-emerald-500 transition-colors"><Pencil size={16}/></button>
                   </div>
                 )}
              </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-[#0B0E14] border border-[#1E293B] p-5 rounded-2xl">
-               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Revenue</p>
-               <p className="text-2xl font-black text-white">₹{formatINR(totalRev)}</p>
+          {/* DYNAMIC KPI STRIP */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+             <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
+               <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Revenue</p>
+               <p className="text-lg sm:text-2xl font-black text-white">₹{formatINR(totalRev)}</p>
              </div>
-             <div className="bg-[#0B0E14] border border-[#1E293B] p-5 rounded-2xl">
-               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Gaming Revenue</p>
-               <p className="text-2xl font-black text-[#00D0FF]">₹{formatINR(gamingRev)}</p>
+             <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
+               <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Gaming Revenue</p>
+               <p className="text-lg sm:text-2xl font-black text-[#00D0FF]">₹{formatINR(gamingRev)}</p>
              </div>
-             <div className="bg-[#0B0E14] border border-[#1E293B] p-5 rounded-2xl">
-               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">F&B Revenue</p>
-               <p className="text-2xl font-black text-emerald-400">₹{formatINR(fnbRev)}</p>
+             <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
+               <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">F&B Revenue</p>
+               <p className="text-lg sm:text-2xl font-black text-emerald-400">₹{formatINR(fnbRev)}</p>
              </div>
-             <div className="bg-[#0B0E14] border border-[#1E293B] p-5 rounded-2xl">
-               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Sessions</p>
-               <p className="text-2xl font-black text-purple-400">{filteredSales.length}</p>
+             <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
+               <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Sessions</p>
+               <p className="text-lg sm:text-2xl font-black text-purple-400">{filteredSales.length}</p>
              </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-6 flex flex-col">
-               <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Gamepad2 size={16}/> System Breakup</h3>
+          {/* MAIN DASHBOARD GRID */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-5 sm:p-6 flex flex-col">
+               <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4 sm:mb-6 flex items-center gap-2"><Gamepad2 size={16}/> System Breakup</h3>
                
-               <div className="space-y-6 flex-1">
+               <div className="space-y-4 sm:space-y-6 flex-1">
                  <div>
-                   <div className="flex justify-between text-sm font-bold mb-2"><span>PlayStation 5</span><span className="text-[#00D0FF]">₹{formatINR(ps5Rev)}</span></div>
-                   <div className="w-full bg-[#0B0E14] rounded-full h-3 overflow-hidden border border-[#1E293B]">
+                   <div className="flex justify-between text-xs sm:text-sm font-bold mb-2"><span>PlayStation 5</span><span className="text-[#00D0FF]">₹{formatINR(ps5Rev)}</span></div>
+                   <div className="w-full bg-[#0B0E14] rounded-full h-2.5 sm:h-3 overflow-hidden border border-[#1E293B]">
                      <div className="bg-[#00D0FF] h-full rounded-full transition-all duration-1000" style={{ width: `${ps5Pct}%` }}></div>
                    </div>
                    <p className="text-right text-[10px] text-gray-500 mt-1">{ps5Pct.toFixed(1)}% of Revenue</p>
                  </div>
 
                  <div>
-                   <div className="flex justify-between text-sm font-bold mb-2"><span>PC Rigs</span><span className="text-purple-400">₹{formatINR(pcRev)}</span></div>
-                   <div className="w-full bg-[#0B0E14] rounded-full h-3 overflow-hidden border border-[#1E293B]">
+                   <div className="flex justify-between text-xs sm:text-sm font-bold mb-2"><span>PC Rigs</span><span className="text-purple-400">₹{formatINR(pcRev)}</span></div>
+                   <div className="w-full bg-[#0B0E14] rounded-full h-2.5 sm:h-3 overflow-hidden border border-[#1E293B]">
                      <div className="bg-purple-400 h-full rounded-full transition-all duration-1000" style={{ width: `${pcPct}%` }}></div>
                    </div>
                    <p className="text-right text-[10px] text-gray-500 mt-1">{pcPct.toFixed(1)}% of Revenue</p>
                  </div>
 
                  <div>
-                   <div className="flex justify-between text-sm font-bold mb-2"><span>Racing Sim</span><span className="text-orange-400">₹{formatINR(simRev)}</span></div>
-                   <div className="w-full bg-[#0B0E14] rounded-full h-3 overflow-hidden border border-[#1E293B]">
+                   <div className="flex justify-between text-xs sm:text-sm font-bold mb-2"><span>Racing Sim</span><span className="text-orange-400">₹{formatINR(simRev)}</span></div>
+                   <div className="w-full bg-[#0B0E14] rounded-full h-2.5 sm:h-3 overflow-hidden border border-[#1E293B]">
                      <div className="bg-orange-400 h-full rounded-full transition-all duration-1000" style={{ width: `${simPct}%` }}></div>
                    </div>
                    <p className="text-right text-[10px] text-gray-500 mt-1">{simPct.toFixed(1)}% of Revenue</p>
@@ -453,34 +466,34 @@ export default function MasterVault() {
                </div>
             </div>
 
-            <div className="lg:col-span-2 bg-[#121824] border border-[#1E293B] rounded-3xl p-6 flex flex-col h-[400px]">
-               <div className="flex justify-between items-center mb-6 shrink-0">
+            <div className="lg:col-span-2 bg-[#121824] border border-[#1E293B] rounded-3xl p-5 sm:p-6 flex flex-col h-[350px] sm:h-[400px]">
+               <div className="flex justify-between items-center mb-4 sm:mb-6 shrink-0">
                   <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Users size={16}/> Top Customers</h3>
                   <div className="flex bg-[#0B0E14] rounded-lg p-1 border border-[#1E293B]">
-                     <button onClick={() => setLeaderboardSort('spend')} className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center gap-1 ${leaderboardSort === 'spend' ? 'bg-[#00D0FF]/20 text-[#00D0FF]' : 'text-gray-500 hover:text-white'}`}><IndianRupee size={12}/> By Spend</button>
-                     <button onClick={() => setLeaderboardSort('time')} className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center gap-1 ${leaderboardSort === 'time' ? 'bg-orange-500/20 text-orange-500' : 'text-gray-500 hover:text-white'}`}><Clock size={12}/> By Time</button>
+                     <button onClick={() => setLeaderboardSort('spend')} className={`px-2.5 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase rounded-md transition-all flex items-center gap-1 ${leaderboardSort === 'spend' ? 'bg-[#00D0FF]/20 text-[#00D0FF]' : 'text-gray-500 hover:text-white'}`}><IndianRupee size={12}/> Spend</button>
+                     <button onClick={() => setLeaderboardSort('time')} className={`px-2.5 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase rounded-md transition-all flex items-center gap-1 ${leaderboardSort === 'time' ? 'bg-orange-500/20 text-orange-500' : 'text-gray-500 hover:text-white'}`}><Clock size={12}/> Time</button>
                   </div>
                </div>
                
-               <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+               <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 sm:pr-2">
                   <div className="space-y-2">
                      {leaderboard.length === 0 ? (
                         <p className="text-center text-gray-600 text-sm italic py-10">No customer data found for this timeframe.</p>
                      ) : (
                         leaderboard.map((cust, idx) => (
-                           <div key={cust.name} className="flex justify-between items-center bg-[#0B0E14] p-3 rounded-xl border border-[#1E293B] hover:border-[#2D3748] transition-colors">
-                              <div className="flex items-center gap-3">
-                                 <div className={`w-6 text-center text-[10px] font-black ${idx < 3 ? 'text-yellow-500' : 'text-gray-600'}`}>#{idx + 1}</div>
-                                 <span className="font-bold text-sm text-gray-200">{cust.name}</span>
+                           <div key={cust.name} className="flex justify-between items-center bg-[#0B0E14] p-2.5 sm:p-3 rounded-xl border border-[#1E293B] hover:border-[#2D3748] transition-colors">
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                 <div className={`w-5 sm:w-6 text-center text-[10px] font-black ${idx < 3 ? 'text-yellow-500' : 'text-gray-600'}`}>#{idx + 1}</div>
+                                 <span className="font-bold text-xs sm:text-sm text-gray-200">{cust.name}</span>
                               </div>
-                              <div className="flex gap-6 text-right">
+                              <div className="flex gap-4 sm:gap-6 text-right">
                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-500 uppercase font-bold">Hours</span>
-                                    <span className={`text-sm font-black ${leaderboardSort === 'time' ? 'text-orange-400' : 'text-gray-400'}`}>{cust.time}h</span>
+                                    <span className="text-[8px] sm:text-[9px] text-gray-500 uppercase font-bold">Hours</span>
+                                    <span className={`text-xs sm:text-sm font-black ${leaderboardSort === 'time' ? 'text-orange-400' : 'text-gray-400'}`}>{cust.time}h</span>
                                  </div>
                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-500 uppercase font-bold">Spent</span>
-                                    <span className={`text-sm font-black ${leaderboardSort === 'spend' ? 'text-[#00D0FF]' : 'text-gray-400'}`}>₹{formatINR(cust.spent)}</span>
+                                    <span className="text-[8px] sm:text-[9px] text-gray-500 uppercase font-bold">Spent</span>
+                                    <span className={`text-xs sm:text-sm font-black ${leaderboardSort === 'spend' ? 'text-[#00D0FF]' : 'text-gray-400'}`}>₹{formatINR(cust.spent)}</span>
                                  </div>
                               </div>
                            </div>
@@ -491,106 +504,114 @@ export default function MasterVault() {
             </div>
           </div>
 
-          <div className="mt-8 bg-[#121824] border border-[#1E293B] rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="mt-4 sm:mt-8 bg-[#121824] border border-[#1E293B] rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
              <div>
-                <h2 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                   <MessageCircle className="text-emerald-500" size={20}/> Historical Report Generator
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+                   <MessageCircle className="text-emerald-500" size={18}/> Historical Report Generator
                 </h2>
-                <p className="text-xs text-gray-500 font-bold mt-1">Pull the exact End-of-Day WhatsApp format for any past date.</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 font-bold mt-1">Pull the exact End-of-Day WhatsApp format for any past date.</p>
              </div>
-             <div className="flex items-center gap-3 w-full md:w-auto">
-                <input type="date" className="w-full md:w-auto bg-[#0B0E14] text-sm font-bold text-white p-3 rounded-xl border border-[#2D3748] outline-none focus:border-emerald-500 [color-scheme:dark]" value={reportDate} onChange={e => setReportDate(e.target.value)} />
-                <button onClick={handleOpenReport} className="bg-[#1A2235] hover:bg-emerald-500 hover:text-black text-emerald-500 border border-emerald-500/30 px-6 py-3 rounded-xl font-black transition-all shadow-sm shrink-0">
+             <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <input type="date" className="w-full sm:w-auto bg-[#0B0E14] text-xs sm:text-sm font-bold text-white p-3 rounded-xl border border-[#2D3748] outline-none focus:border-emerald-500 [color-scheme:dark]" value={reportDate} onChange={e => setReportDate(e.target.value)} />
+                <button onClick={handleOpenReport} className="w-full sm:w-auto bg-[#1A2235] hover:bg-emerald-500 hover:text-black text-emerald-500 border border-emerald-500/30 px-6 py-3 rounded-xl font-black text-sm transition-all shadow-sm shrink-0">
                    Generate Report
                 </button>
              </div>
           </div>
 
-          <div className="mt-4 mb-12">
-             <h2 className="text-lg font-black tracking-tight mb-4 text-gray-400">Automated Ledger <span className="text-xs font-normal text-gray-600 ml-2">(Showing from Today onwards)</span></h2>
-             <div className="bg-[#0B0E14] rounded-2xl border border-[#1E293B] overflow-hidden shadow-xl max-h-[400px] overflow-y-auto custom-scrollbar">
-               <div className="grid grid-cols-12 gap-4 p-4 bg-[#121824] border-b border-[#1E293B] text-[10px] font-black text-gray-500 uppercase tracking-widest sticky top-0 z-10">
-                 <div className="col-span-2">Date</div>
-                 <div className="col-span-2 text-right">Gross Rev</div>
-                 <div className="col-span-2 pl-4 border-l border-[#1E293B]">Breakup</div>
-                 <div className="col-span-3 pl-4 border-l border-[#1E293B]">Cash Handling</div>
-                 <div className="col-span-3 pl-4 border-l border-[#1E293B]">UPI & Banking</div>
-               </div>
-               
-               <div className="divide-y divide-[#1E293B]">
-                 {displayLedger.map(row => (
-                   <div key={row.id} className="grid grid-cols-12 gap-4 p-4 items-center text-sm hover:bg-[#121824]/50 transition-colors">
-                     <div className="col-span-2 font-bold text-gray-300">{row.date}</div>
-                     
-                     <div className="col-span-2 text-right font-black text-white text-lg">₹{formatINR(extractNumber(row.gross_total))}</div>
-                     
-                     <div className="col-span-2 pl-4 border-l border-[#1E293B]/50 flex flex-col gap-1">
-                        <div className="flex justify-between text-[10px]"><span className="text-gray-500">Game:</span> <span className="text-[#00D0FF] font-bold">₹{formatINR(extractNumber(row.gaming_revenue))}</span></div>
-                        <div className="flex justify-between text-[10px]"><span className="text-gray-500">F&B+:</span> <span className="text-orange-400 font-bold">₹{formatINR(extractNumber(row.fnb_revenue) + extractNumber(row.misc_revenue))}</span></div>
-                     </div>
-                     
-                     <div className="col-span-3 pl-4 border-l border-[#1E293B]/50 flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                           <span className="text-[10px] text-gray-500 font-bold uppercase">Earned Cash</span>
-                           <span className="font-bold text-white text-xs">₹{formatINR(extractNumber(row.cash_collected))}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-[#1A2235] p-1.5 rounded-lg border border-[#2D3748]">
-                           <div className="flex flex-col">
-                              <span className="text-[9px] text-gray-400">Vaulted</span>
-                              <span className="font-black text-emerald-400 text-xs">₹{formatINR(extractNumber(row.cash_withdrawn))}</span>
-                           </div>
-                           <div className="h-6 w-px bg-[#2D3748]"></div>
-                           <div className="flex flex-col text-right">
-                              <span className="text-[9px] text-gray-400">Float Left</span>
-                              <span className="font-black text-yellow-500 text-xs">₹{formatINR(extractNumber(row.float_forward))}</span>
-                           </div>
-                        </div>
-                        <button onClick={() => vaultDailyCash(row)} className="w-full text-[9px] font-bold text-white bg-[#1A2235] hover:bg-emerald-500 hover:text-black py-1 rounded border border-[#2D3748] transition-all flex justify-center items-center gap-1">
-                           <Wallet size={10}/> Add to Home Cash
-                        </button>
-                     </div>
-                     
-                     <div className="col-span-3 pl-4 border-l border-[#1E293B]/50 flex flex-col gap-2 justify-center">
-                        <div className="flex justify-between items-center">
-                           <span className="text-[10px] text-gray-500 font-bold uppercase">Earned UPI</span>
-                           <span className="font-black text-[#00D0FF] text-sm">₹{formatINR(extractNumber(row.upi_collected))}</span>
-                        </div>
-                        {row.upi_status === 'Settled' ? (
-                           <span className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1.5 rounded-md border border-emerald-500/20 w-full mt-1">
-                             <CheckCircle2 size={12}/> Settled to Bank
-                           </span>
-                        ) : (
-                           <button onClick={() => markUPISettled(row)} disabled={isDataLoading} className="w-full mt-1 text-[10px] font-bold text-white bg-[#1A2235] hover:bg-orange-500 hover:text-black px-2 py-1.5 rounded-md border border-[#2D3748] transition-all text-center">
-                             Mark as Cleared
-                           </button>
-                        )}
-                     </div>
+          <div className="mt-2 sm:mt-4 mb-4 sm:mb-12">
+             <h2 className="text-base sm:text-lg font-black tracking-tight mb-3 sm:mb-4 text-gray-400">Automated Ledger <span className="text-[10px] sm:text-xs font-normal text-gray-600 ml-1 sm:ml-2">(Showing from Today onwards)</span></h2>
+             
+             {/* 🟢 HORIZONTALLY SCROLLABLE LEDGER TABLE FOR MOBILE */}
+             <div className="bg-[#0B0E14] rounded-2xl border border-[#1E293B] overflow-hidden shadow-xl max-h-[400px] flex flex-col">
+               <div className="overflow-x-auto custom-scrollbar flex-1">
+                 <div className="min-w-[800px]">
+                   
+                   <div className="grid grid-cols-12 gap-4 p-4 bg-[#121824] border-b border-[#1E293B] text-[10px] font-black text-gray-500 uppercase tracking-widest sticky top-0 z-10">
+                     <div className="col-span-2">Date</div>
+                     <div className="col-span-2 text-right">Gross Rev</div>
+                     <div className="col-span-2 pl-4 border-l border-[#1E293B]">Breakup</div>
+                     <div className="col-span-3 pl-4 border-l border-[#1E293B]">Cash Handling</div>
+                     <div className="col-span-3 pl-4 border-l border-[#1E293B]">UPI & Banking</div>
                    </div>
-                 ))}
-                 {displayLedger.length === 0 && (
-                    <div className="col-span-12 p-6 text-center text-gray-500 text-sm">No ledger data found. Future "Close Day" submissions will appear here.</div>
-                 )}
+                   
+                   <div className="divide-y divide-[#1E293B]">
+                     {displayLedger.map(row => (
+                       <div key={row.id} className="grid grid-cols-12 gap-4 p-4 items-center text-sm hover:bg-[#121824]/50 transition-colors">
+                         <div className="col-span-2 font-bold text-gray-300">{row.date}</div>
+                         
+                         <div className="col-span-2 text-right font-black text-white text-lg">₹{formatINR(extractNumber(row.gross_total))}</div>
+                         
+                         <div className="col-span-2 pl-4 border-l border-[#1E293B]/50 flex flex-col gap-1">
+                            <div className="flex justify-between text-[10px]"><span className="text-gray-500">Game:</span> <span className="text-[#00D0FF] font-bold">₹{formatINR(extractNumber(row.gaming_revenue))}</span></div>
+                            <div className="flex justify-between text-[10px]"><span className="text-gray-500">F&B+:</span> <span className="text-orange-400 font-bold">₹{formatINR(extractNumber(row.fnb_revenue) + extractNumber(row.misc_revenue))}</span></div>
+                         </div>
+                         
+                         <div className="col-span-3 pl-4 border-l border-[#1E293B]/50 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                               <span className="text-[10px] text-gray-500 font-bold uppercase">Earned Cash</span>
+                               <span className="font-bold text-white text-xs">₹{formatINR(extractNumber(row.cash_collected))}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-[#1A2235] p-1.5 rounded-lg border border-[#2D3748]">
+                               <div className="flex flex-col">
+                                  <span className="text-[9px] text-gray-400">Vaulted</span>
+                                  <span className="font-black text-emerald-400 text-xs">₹{formatINR(extractNumber(row.cash_withdrawn))}</span>
+                               </div>
+                               <div className="h-6 w-px bg-[#2D3748]"></div>
+                               <div className="flex flex-col text-right">
+                                  <span className="text-[9px] text-gray-400">Float Left</span>
+                                  <span className="font-black text-yellow-500 text-xs">₹{formatINR(extractNumber(row.float_forward))}</span>
+                               </div>
+                            </div>
+                            <button onClick={() => vaultDailyCash(row)} className="w-full text-[9px] font-bold text-white bg-[#1A2235] hover:bg-emerald-500 hover:text-black py-1 rounded border border-[#2D3748] transition-all flex justify-center items-center gap-1">
+                               <Wallet size={10}/> Add to Home Cash
+                            </button>
+                         </div>
+                         
+                         <div className="col-span-3 pl-4 border-l border-[#1E293B]/50 flex flex-col gap-2 justify-center">
+                            <div className="flex justify-between items-center">
+                               <span className="text-[10px] text-gray-500 font-bold uppercase">Earned UPI</span>
+                               <span className="font-black text-[#00D0FF] text-sm">₹{formatINR(extractNumber(row.upi_collected))}</span>
+                            </div>
+                            {row.upi_status === 'Settled' ? (
+                               <span className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1.5 rounded-md border border-emerald-500/20 w-full mt-1">
+                                 <CheckCircle2 size={12}/> Settled to Bank
+                               </span>
+                            ) : (
+                               <button onClick={() => markUPISettled(row)} disabled={isDataLoading} className="w-full mt-1 text-[10px] font-bold text-white bg-[#1A2235] hover:bg-orange-500 hover:text-black px-2 py-1.5 rounded-md border border-[#2D3748] transition-all text-center">
+                                 Mark as Cleared
+                               </button>
+                            )}
+                         </div>
+                       </div>
+                     ))}
+                     {displayLedger.length === 0 && (
+                        <div className="p-6 text-center text-gray-500 text-sm">No ledger data found. Future "Close Day" submissions will appear here.</div>
+                     )}
+                   </div>
+                 </div>
                </div>
              </div>
           </div>
         </div>
       </div>
 
+      {/* TOUCH-FRIENDLY REPORT MODAL OVERLAY */}
       {reportModal && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#121824] p-8 rounded-3xl w-full max-w-sm border border-[#1E293B] shadow-2xl relative">
-             <button onClick={() => setReportModal(null)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X size={20}/></button>
+          <div className="bg-[#121824] p-6 sm:p-8 rounded-3xl w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar border border-[#1E293B] shadow-2xl relative">
+             <button onClick={() => setReportModal(null)} className="absolute top-4 sm:top-6 right-4 sm:right-6 text-gray-500 hover:text-white p-2"><X size={20}/></button>
              
-             <h2 className="text-2xl font-black text-white mb-2">Historical Report</h2>
-             <p className="text-sm text-gray-500 mb-6 font-bold">Generated from {reportDate} database logs.</p>
+             <h2 className="text-xl sm:text-2xl font-black text-white mb-2">Historical Report</h2>
+             <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6 font-bold">Generated from {reportDate} logs.</p>
              
-             <div className="bg-[#0B0E14] border border-[#2D3748] p-5 rounded-2xl font-mono text-sm text-gray-300 whitespace-pre-wrap mb-6">
+             <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-[10px] sm:text-sm text-gray-300 whitespace-pre-wrap mb-6">
                 {reportModal}
              </div>
 
-             <div className="grid grid-cols-2 gap-4">
-               <button onClick={() => setReportModal(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-4 rounded-xl font-bold hover:text-white transition-all">Close</button>
-               <button onClick={() => { navigator.clipboard.writeText(reportModal); alert("Report copied to clipboard!"); }} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black hover:bg-white transition-all flex items-center justify-center gap-2">
+             <div className="grid grid-cols-2 gap-3 sm:gap-4">
+               <button onClick={() => setReportModal(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3 sm:py-4 rounded-xl font-bold hover:text-white transition-all text-xs sm:text-sm">Close</button>
+               <button onClick={() => { navigator.clipboard.writeText(reportModal); alert("Report copied to clipboard!"); }} className="w-full bg-emerald-500 text-black py-3 sm:py-4 rounded-xl font-black hover:bg-white transition-all flex items-center justify-center gap-2 text-xs sm:text-sm">
                  <Copy size={16}/> Copy
                </button>
              </div>
