@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Monitor, Package, BarChart3, Lock, CheckCircle2, Copy, X, Wallet, Building2, Pencil, Check, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle } from 'lucide-react';
+import { Monitor, Package, BarChart3, Lock, CheckCircle2, Copy, X, Wallet, Building2, Pencil, Check, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 
 function formatINR(num: number) { return Math.round(num || 0).toLocaleString('en-IN'); }
 
@@ -22,12 +22,14 @@ export default function MasterVault() {
   const [salesData, setSalesData] = useState<any[]>([]);
   const [cafeData, setCafeData] = useState<any[]>([]);
   const [ledgerData, setLedgerData] = useState<any[]>([]);
+  const [rawExpenses, setRawExpenses] = useState<any[]>([]);
   
   // Filter States
   const [timeFilter, setTimeFilter] = useState('Lifetime');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [leaderboardSort, setLeaderboardSort] = useState<'spend' | 'time'>('spend');
+  const [dailyReportSortAsc, setDailyReportSortAsc] = useState(false);
 
   // Balances
   const [bankBalance, setBankBalance] = useState<number>(0);
@@ -82,11 +84,13 @@ export default function MasterVault() {
     
     const sales = await fetchAllRows('sales');
     const cafe = await fetchAllRows('cafe_orders');
+    const expenses = await fetchAllRows('expenses');
     
     const { data: ledger } = await supabase.from('daily_ledger').select('*').order('date', { ascending: false });
     
     if (sales) setSalesData(sales);
     if (cafe) setCafeData(cafe);
+    if (expenses) setRawExpenses(expenses);
     if (ledger) setLedgerData(ledger);
     
     setIsDataLoading(false);
@@ -173,10 +177,25 @@ export default function MasterVault() {
     });
 
     daySales.forEach(s => {
-       const rawGameCost = extractNumber(s.total || s.amount || s.total_amount || 0);
+       const rawDateStr = s.date ? String(s.date).trim() : (s.created_at ? String(s.created_at).split('T')[0] : '');
+       const isLegacyData = rawDateStr < '2026-07-18';
+       
+       const rawTotal = extractNumber(s.total || s.amount || s.total_amount || 0);
        const fnbCostRaw = extractNumber(s.fnb_total || 0);
-       const gameCost = Math.round(rawGameCost / 10) * 10;
-       const grandTotal = rawGameCost + fnbCostRaw; 
+       
+       let gameCostRaw = 0;
+       let grandTotalRaw = 0;
+       
+       if (isLegacyData) {
+           gameCostRaw = Math.max(0, rawTotal - fnbCostRaw);
+           grandTotalRaw = rawTotal;
+       } else {
+           gameCostRaw = rawTotal;
+           grandTotalRaw = rawTotal + fnbCostRaw;
+       }
+       
+       const gameCost = Math.round(gameCostRaw / 10) * 10;
+       const grandTotal = Math.round(grandTotalRaw / 10) * 10;
 
        const sysName = String(s.system || s.system_type || '').toUpperCase();
        if (sysName.includes('PC')) pcRev += gameCost;
@@ -259,14 +278,30 @@ export default function MasterVault() {
     setReportModal(text);
   };
 
+  // -------------------------------------------------------------
+  // KPI ENGINE
+  // -------------------------------------------------------------
   const filteredSales = filterByDate(salesData);
   const filteredCafe = filterByDate(cafeData);
 
-  let gamingRev = 0, fnbRev = 0, pcRev = 0, ps5Rev = 0, simRev = 0;
+  let gamingRev = 0, fnbRev = 0, fnbProfit = 0, pcRev = 0, ps5Rev = 0, simRev = 0;
   
   filteredSales.forEach(s => {
-    const gameCost = extractNumber(s.total || s.amount || s.total_amount || 0);
+    const rawDateStr = s.date ? String(s.date).trim() : (s.created_at ? String(s.created_at).split('T')[0] : '');
+    const isLegacyData = rawDateStr < '2026-07-18';
+    
+    const rawTotal = extractNumber(s.total || s.amount || s.total_amount || 0);
+    const fnbCost = extractNumber(s.fnb_total || 0);
+    
+    let gameCost = 0;
+    if (isLegacyData) {
+        gameCost = Math.max(0, rawTotal - fnbCost); 
+    } else {
+        gameCost = rawTotal; 
+    }
+    
     gamingRev += gameCost;
+    fnbRev += fnbCost; 
     
     const sysName = String(s.system || s.system_type || s.console || s.type || '').toUpperCase();
     if (sysName.includes('PC')) pcRev += gameCost;
@@ -276,7 +311,24 @@ export default function MasterVault() {
   });
 
   filteredCafe.forEach(c => {
-    fnbRev += extractNumber(c.total_revenue || c.total || c.amount || 0);
+    const rev = extractNumber(c.total_revenue || c.total || c.amount || 0);
+    const cost = extractNumber(c.total_cost || 0);
+    const prof = extractNumber(c.profit || 0) || (rev - cost);
+    
+    const isRetail = String(c.items || '').includes('[Retail]');
+    
+    // Aggregate profit from ALL F&B orders (Walk-in + Tabs)
+    if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
+       fnbProfit += prof;
+    }
+
+    // Aggregate pure revenue ONLY from Walk-ins (Tabs are aggregated via sales loop)
+    const method = String(c.method || c.payment_method || '').trim().toLowerCase();
+    if (method !== 'tab') {
+       if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
+          fnbRev += rev;
+       }
+    }
   });
 
   const totalRev = gamingRev + fnbRev;
@@ -285,20 +337,122 @@ export default function MasterVault() {
   const simPct = totalRev > 0 ? (simRev / totalRev) * 100 : 0;
 
   const customerMap: Record<string, { name: string; spent: number; time: number }> = {};
+  
   filteredSales.forEach(s => {
      const name = s.customer_name || s.customer || s.name || 'Guest User';
      if (!customerMap[name]) customerMap[name] = { name, spent: 0, time: 0 };
      
-     const gameCost = extractNumber(s.total || s.amount || s.total_amount || 0);
+     const rawDateStr = s.date ? String(s.date).trim() : (s.created_at ? String(s.created_at).split('T')[0] : '');
+     const isLegacyData = rawDateStr < '2026-07-18';
+     
+     const rawTotal = extractNumber(s.total || s.amount || s.total_amount || 0);
      const fnbCost = extractNumber(s.fnb_total || 0);
      
-     customerMap[name].spent += (gameCost + fnbCost);
+     let grandTotal = 0;
+     if (isLegacyData) {
+         grandTotal = rawTotal; 
+     } else {
+         grandTotal = rawTotal + fnbCost; 
+     }
+     
+     customerMap[name].spent += grandTotal;
      customerMap[name].time += extractNumber(s.duration || s.hours || 0);
   });
   
   const leaderboard = Object.values(customerMap)
     .sort((a, b) => leaderboardSort === 'spend' ? b.spent - a.spent : b.time - a.time)
     .slice(0, 20);
+
+  // -------------------------------------------------------------
+  // MASTER DAILY REPORT EXCEL ENGINE (All-Time) - DATE BUG FIXED
+  // -------------------------------------------------------------
+  const masterDailyMap: Record<string, any> = {};
+
+  const initMasterDay = (d: string) => {
+     if (!masterDailyMap[d]) masterDailyMap[d] = { date: d, total: 0, cash: 0, upi: 0, fnbRev: 0, fnbProfit: 0, expenses: 0 };
+  };
+
+  const getStrictDayStr = (primaryDate: any, backupDate: any) => {
+     let val = primaryDate ? String(primaryDate).trim() : (backupDate ? String(backupDate).trim() : '');
+     if (!val) return 'Unknown';
+     return val.split('T')[0].split(' ')[0]; 
+  };
+
+  salesData.forEach(s => {
+     if (s.status === 'Active' || s.status === 'Reserved' || s.status === 'Hold' || s.status === 'Pending') return;
+     
+     const d = getStrictDayStr(s.date, s.created_at);
+     if (d === 'Unknown') return;
+     initMasterDay(d);
+
+     const isLegacyData = d < '2026-07-18';
+     const rawTotal = extractNumber(s.total || s.amount || s.total_amount || 0);
+     const fnbAmt = extractNumber(s.fnb_total || 0);
+     const grandTotal = isLegacyData ? rawTotal : rawTotal + fnbAmt;
+     
+     masterDailyMap[d].total += grandTotal;
+     masterDailyMap[d].fnbRev += fnbAmt;
+
+     const m = String(s.method || '').trim();
+     if (m.startsWith('Split|')) {
+        const parts = m.split('|');
+        masterDailyMap[d].cash += Number(parts[1] || 0);
+        masterDailyMap[d].upi += Number(parts[2] || 0);
+     } else if (m === 'Cash') {
+        masterDailyMap[d].cash += grandTotal;
+     } else if (m === 'UPI') {
+        masterDailyMap[d].upi += grandTotal;
+     }
+  });
+
+  cafeData.forEach(c => {
+     const d = getStrictDayStr(c.date, c.created_at);
+     if (d === 'Unknown') return;
+     initMasterDay(d);
+     
+     const method = String(c.method || c.payment_method || '').trim().toLowerCase();
+     const rev = extractNumber(c.total_revenue || c.total || c.amount || 0);
+     const cost = extractNumber(c.total_cost || 0);
+     const prof = extractNumber(c.profit || 0) || (rev - cost);
+     
+     const isRetail = String(c.items || '').includes('[Retail]');
+     
+     if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
+        masterDailyMap[d].fnbProfit += prof;
+     }
+
+     if (method !== 'tab') {
+         if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
+            masterDailyMap[d].fnbRev += rev;
+         }
+         masterDailyMap[d].total += rev;
+
+         const m = String(c.method || c.payment_method || '').trim();
+         if (m.startsWith('Split|')) {
+            const parts = m.split('|');
+            masterDailyMap[d].cash += Number(parts[1] || 0);
+            masterDailyMap[d].upi += Number(parts[2] || 0);
+         } else if (m === 'Cash') {
+            masterDailyMap[d].cash += rev;
+         } else if (m === 'UPI') {
+            masterDailyMap[d].upi += rev;
+         }
+     }
+  });
+
+  rawExpenses.forEach(e => {
+     const d = getStrictDayStr(e.expense_date, e.created_at);
+     if (d === 'Unknown') return;
+     initMasterDay(d);
+     
+     if (e.status === 'Paid' && !['Bank Deposit', 'Capital / Opening Balance'].includes(e.category)) {
+         masterDailyMap[d].expenses += extractNumber(e.amount);
+     }
+  });
+
+  const masterDailyArray = Object.values(masterDailyMap);
+  masterDailyArray.sort((a, b) => dailyReportSortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+
 
   const markUPISettled = async (row: any) => {
     if (isDataLoading) return; setIsDataLoading(true);
@@ -414,23 +568,27 @@ export default function MasterVault() {
              </div>
           </div>
 
-          {/* DYNAMIC KPI STRIP */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          {/* 🟢 5-COLUMN DYNAMIC KPI STRIP */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
              <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Revenue</p>
-               <p className="text-lg sm:text-2xl font-black text-white">₹{formatINR(totalRev)}</p>
+               <p className="text-lg sm:text-xl font-black text-white">₹{formatINR(totalRev)}</p>
              </div>
              <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
-               <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Gaming Revenue</p>
-               <p className="text-lg sm:text-2xl font-black text-[#00D0FF]">₹{formatINR(gamingRev)}</p>
+               <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Pure Gaming</p>
+               <p className="text-lg sm:text-xl font-black text-[#00D0FF]">₹{formatINR(gamingRev)}</p>
              </div>
              <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">F&B Revenue</p>
-               <p className="text-lg sm:text-2xl font-black text-emerald-400">₹{formatINR(fnbRev)}</p>
+               <p className="text-lg sm:text-xl font-black text-emerald-400">₹{formatINR(fnbRev)}</p>
              </div>
-             <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
+             <div className="bg-[#0B0E14] border border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.1)] p-4 sm:p-5 rounded-2xl">
+               <p className="text-[9px] sm:text-[10px] text-orange-500 font-bold uppercase tracking-widest mb-1">F&B Profit</p>
+               <p className="text-lg sm:text-xl font-black text-orange-400">₹{formatINR(fnbProfit)}</p>
+             </div>
+             <div className="col-span-2 lg:col-span-1 bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl flex flex-col justify-center">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Sessions</p>
-               <p className="text-lg sm:text-2xl font-black text-purple-400">{filteredSales.length}</p>
+               <p className="text-lg sm:text-xl font-black text-purple-400">{filteredSales.length}</p>
              </div>
           </div>
 
@@ -519,10 +677,9 @@ export default function MasterVault() {
              </div>
           </div>
 
-          <div className="mt-2 sm:mt-4 mb-4 sm:mb-12">
+          <div className="mt-2 sm:mt-4 mb-4">
              <h2 className="text-base sm:text-lg font-black tracking-tight mb-3 sm:mb-4 text-gray-400">Automated Ledger <span className="text-[10px] sm:text-xs font-normal text-gray-600 ml-1 sm:ml-2">(Showing from Today onwards)</span></h2>
              
-             {/* 🟢 HORIZONTALLY SCROLLABLE LEDGER TABLE FOR MOBILE */}
              <div className="bg-[#0B0E14] rounded-2xl border border-[#1E293B] overflow-hidden shadow-xl max-h-[400px] flex flex-col">
                <div className="overflow-x-auto custom-scrollbar flex-1">
                  <div className="min-w-[800px]">
@@ -589,6 +746,55 @@ export default function MasterVault() {
                         <div className="p-6 text-center text-gray-500 text-sm">No ledger data found. Future "Close Day" submissions will appear here.</div>
                      )}
                    </div>
+                 </div>
+               </div>
+             </div>
+          </div>
+
+          {/* 🟢 MASTER DAILY REPORT EXCEL TABLE */}
+          <div className="mt-8 sm:mt-12 mb-12">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-3 sm:mb-4">
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-gray-400">Master Daily Report <span className="text-[10px] sm:text-xs font-normal text-gray-600 ml-1 sm:ml-2">(Since Inception)</span></h2>
+                <div className="flex items-center gap-2">
+                   <span className="text-[10px] uppercase font-bold text-gray-500">Sort by Date:</span>
+                   <button onClick={() => setDailyReportSortAsc(!dailyReportSortAsc)} className="bg-[#1A2235] hover:bg-[#00D0FF] hover:text-black text-[#00D0FF] border border-[#00D0FF]/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1">
+                      {dailyReportSortAsc ? <><ArrowUpFromLine size={12}/> Ascending (Oldest First)</> : <><ArrowDownToLine size={12}/> Descending (Newest First)</>}
+                   </button>
+                </div>
+             </div>
+
+             <div className="bg-[#121824] rounded-xl border border-[#2D3748] overflow-hidden shadow-2xl flex flex-col">
+               <div className="overflow-x-auto custom-scrollbar flex-1 max-h-[500px]">
+                 <div className="min-w-[800px]">
+                   <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap border-collapse">
+                      <thead className="bg-yellow-400 text-black font-black tracking-wider sticky top-0 z-20">
+                         <tr>
+                           <th className="p-3 border border-yellow-500">Date</th>
+                           <th className="p-3 border border-yellow-500">Total Income</th>
+                           <th className="p-3 border border-yellow-500">Cash</th>
+                           <th className="p-3 border border-yellow-500">Upi</th>
+                           <th className="p-3 border border-yellow-500">F&B Revenue</th>
+                           <th className="p-3 border border-yellow-500">F&B profit</th>
+                           <th className="p-3 border border-yellow-500">Expenses</th>
+                         </tr>
+                      </thead>
+                      <tbody className="bg-[#0B0E14] text-gray-200">
+                         {masterDailyArray.map(row => (
+                            <tr key={row.date} className="hover:bg-[#1A2235]/60 transition-colors">
+                              <td className="p-3 border border-[#2D3748] font-bold text-white bg-[#121824]/50">{row.date}</td>
+                              <td className="p-3 border border-[#2D3748] font-black text-[#00D0FF]">₹{formatINR(row.total)}</td>
+                              <td className="p-3 border border-[#2D3748] font-bold">₹{formatINR(row.cash)}</td>
+                              <td className="p-3 border border-[#2D3748] font-bold">₹{formatINR(row.upi)}</td>
+                              <td className="p-3 border border-[#2D3748] text-gray-400">₹{formatINR(row.fnbRev)}</td>
+                              <td className="p-3 border border-[#2D3748] font-black text-orange-400">₹{formatINR(row.fnbProfit)}</td>
+                              <td className="p-3 border border-[#2D3748] font-bold text-red-400">₹{formatINR(row.expenses)}</td>
+                            </tr>
+                         ))}
+                         {masterDailyArray.length === 0 && (
+                            <tr><td colSpan={7} className="p-6 text-center text-gray-500 italic">No historical data available.</td></tr>
+                         )}
+                      </tbody>
+                   </table>
                  </div>
                </div>
              </div>

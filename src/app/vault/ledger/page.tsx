@@ -2,10 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Monitor, Package, BarChart3, Wallet, TrendingUp, PiggyBank, CreditCard, AlertCircle, Plus, ArrowDownToLine, ArrowUpFromLine, List, Trash2, Landmark, Banknote, Edit3, X, Building2 } from 'lucide-react';
+import { Monitor, Package, BarChart3, Wallet, TrendingUp, PiggyBank, CreditCard, AlertCircle, Plus, ArrowDownToLine, ArrowUpFromLine, List, Trash2, Landmark, Banknote, Edit3, X, Building2, Check, CheckCircle2, Copy, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle } from 'lucide-react';
 
 function formatINR(num: number) {
   return Math.round(num || 0).toLocaleString('en-IN');
+}
+
+// Pure number extractor
+function extractNumber(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  const cleaned = String(val).replace(/[^0-9.-]+/g, "");
+  return cleaned ? parseFloat(cleaned) : 0;
 }
 
 export default function MasterFinancialLedger() {
@@ -14,6 +22,8 @@ export default function MasterFinancialLedger() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Data States
+  const [salesData, setSalesData] = useState<any[]>([]);
+  const [cafeData, setCafeData] = useState<any[]>([]);
   const [monthlyLedger, setMonthlyLedger] = useState<any[]>([]);
   const [rawExpenses, setRawExpenses] = useState<any[]>([]); 
   const [lifetimeMetrics, setLifetimeMetrics] = useState({ totalIncome: 0, opProfit: 0, retained: 0, investment: 1000000, liveBank: 0, liveCash: 0 });
@@ -52,6 +62,8 @@ export default function MasterFinancialLedger() {
     let allExpenses: any[] = []; start = 0; hasMore = true;
     while (hasMore) { const { data } = await supabase.from('expenses').select('*').range(start, start + step - 1); if (data && data.length > 0) { allExpenses.push(...data); start += step; if (data.length < step) hasMore = false; } else hasMore = false; }
 
+    setSalesData(allSales);
+    setCafeData(allCafe);
     setRawExpenses(allExpenses.sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime()));
 
     const monthsMap: Record<string, any> = {};
@@ -79,16 +91,30 @@ export default function MasterFinancialLedger() {
 
     allSales.forEach(s => {
       const m = getMonthStr(s.date, s.created_at); initMonth(m);
-      const amt = Number(s.total || s.total_cost || s.amount || 0);
-      monthsMap[m].income += amt; 
-      processIncomeLiquidity(s.method, amt); 
+      
+      const rawTotal = extractNumber(s.total || s.total_cost || s.amount || 0);
+      const fnbAmt = extractNumber(s.fnb_total || 0);
+      
+      // 🟢 LEGACY BRIDGE FIX: Streamlit vs Next.js
+      const rawDateStr = s.date ? String(s.date).trim() : (s.created_at ? String(s.created_at).split('T')[0] : '');
+      const isLegacyData = rawDateStr < '2026-07-18';
+
+      let grandTotal = 0;
+      if (isLegacyData) {
+          grandTotal = rawTotal; // Old system stored game + fnb together
+      } else {
+          grandTotal = rawTotal + fnbAmt; // New system separates them
+      }
+      
+      monthsMap[m].income += grandTotal; 
+      processIncomeLiquidity(s.method, grandTotal); 
     });
 
     allCafe.forEach(c => {
       const method = String(c.method || c.payment_method || '').trim();
       if (method.toLowerCase() !== 'tab') {
         const m = getMonthStr(c.date, c.created_at); initMonth(m);
-        const amt = Number(c.total_revenue || c.total || c.amount || 0);
+        const amt = extractNumber(c.total_revenue || c.total || c.amount || 0);
         monthsMap[m].income += amt;
         processIncomeLiquidity(method, amt); 
       }
@@ -170,7 +196,6 @@ export default function MasterFinancialLedger() {
     await fetchLedgerData();
   };
 
-  // 🟢 HARD-SYNC FUNCTION
   const handleSyncBalances = async (e: any) => {
     e.preventDefault();
     if (isProcessing) return; setIsProcessing(true);
@@ -179,7 +204,6 @@ export default function MasterFinancialLedger() {
     const cashDiff = Number(syncCash) - lifetimeMetrics.liveCash;
     const dateStr = new Date().toLocaleDateString('en-CA');
 
-    // Silent adjustments to fix math perfectly without hitting PnL
     if (bankDiff !== 0) {
        await supabase.from('expenses').insert([{ expense_date: dateStr, category: 'Capital / Opening Balance', description: 'System Auto-Sync (Bank)', amount: bankDiff, payment_method: 'UPI', status: 'Paid' }]);
     }
@@ -200,7 +224,7 @@ export default function MasterFinancialLedger() {
       <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4">
         <a href="/" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Live Floor"><Monitor size={20} /></a>
         <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
-        <a href="/vault/analytics" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Analytics"><BarChart3 size={20} /></a>
+        <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
         <div className="p-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500 rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]" title="Financial Ledger"><Wallet size={20} /></div>
       </div>
 
@@ -208,7 +232,7 @@ export default function MasterFinancialLedger() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0B0E14] border-t border-[#1E293B] flex items-center justify-around z-40 px-2 shadow-2xl">
         <a href="/" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Live Floor"><Monitor size={20} /></a>
         <a href="/vault/inventory" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Inventory"><Package size={20} /></a>
-        <a href="/vault/analytics" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-orange-500 rounded-xl border border-[#2D3748]" title="Master Analytics"><BarChart3 size={20} /></a>
+        <a href="/vault" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-orange-500 rounded-xl border border-[#2D3748]" title="Master Vault"><BarChart3 size={20} /></a>
         <div className="p-2.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500 rounded-xl transition-all" title="Financial Ledger"><Wallet size={20} /></div>
       </div>
 
