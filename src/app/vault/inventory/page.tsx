@@ -26,7 +26,7 @@ export default function InventoryManager() {
 
   async function fetchInventoryAndStats() {
     // 1. Fetch Inventory
-    const { data: invData } = await supabase.from('inventory').select('*');
+    const { data: invData } = await supabase.from('inventory').select('*').order('item_name', { ascending: true });
     if (invData) {
       setInventory(invData);
       const uniqueCats = Array.from(new Set(invData.map(item => item.category))) as string[];
@@ -45,8 +45,21 @@ export default function InventoryManager() {
 
   const handleUpdateItem = async (id: number, field: string, value: any) => {
     const val = field === 'item_name' || field === 'category' ? value : Number(value);
+    
+    // Optimistically update the UI
     setInventory(inventory.map(item => item.id === id ? { ...item, [field]: val } : item));
+    
+    // Sync to Supabase
     await supabase.from('inventory').update({ [field]: val }).eq('id', id);
+
+    // If we changed a category to something completely new, we might need to refresh categories
+    if (field === 'category') {
+        const { data: invData } = await supabase.from('inventory').select('category');
+        if (invData) {
+            const uniqueCats = Array.from(new Set(invData.map(item => item.category))) as string[];
+            setCategories(uniqueCats);
+        }
+    }
   };
 
   const handleStockAdjust = async (id: number, increment: number, currentStock: number) => {
@@ -59,6 +72,13 @@ export default function InventoryManager() {
     if (window.confirm("Are you sure you want to permanently delete this item?")) {
       setInventory(inventory.filter(item => item.id !== id));
       await supabase.from('inventory').delete().eq('id', id);
+      
+      // Cleanup categories if that was the last item
+      const remainingCats = Array.from(new Set(inventory.filter(i => i.id !== id).map(item => item.category))) as string[];
+      setCategories(remainingCats);
+      if (!remainingCats.includes(activeCategory) && remainingCats.length > 0) {
+          setActiveCategory(remainingCats[0]);
+      }
     }
   };
 
@@ -123,7 +143,7 @@ export default function InventoryManager() {
             <div className="flex justify-between items-center bg-[#121824] p-4 sm:p-6 rounded-2xl border border-[#1E293B]">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tighter flex items-center gap-3"><Package className="text-[#00D0FF]" /> Inventory Manager</h1>
-                <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage cafe stock and pricing freely.</p>
+                <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage cafe stock, edit names, and re-categorize items freely.</p>
               </div>
             </div>
 
@@ -162,17 +182,18 @@ export default function InventoryManager() {
               <button type="submit" className="w-full sm:col-span-2 md:col-span-1 bg-[#00D0FF] text-black p-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-white transition-all"><Plus size={16} /> Add</button>
             </form>
 
-            <div className="bg-[#121824] rounded-2xl border border-[#1E293B] overflow-hidden flex flex-col h-[400px]">
+            <div className="bg-[#121824] rounded-2xl border border-[#1E293B] overflow-hidden flex flex-col h-[500px]">
               <div className="flex gap-2 p-3 sm:p-4 border-b border-[#1E293B] overflow-x-auto bg-[#0B0E14] custom-scrollbar shrink-0">
                 {categories.map(cat => (
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
                 ))}
               </div>
               <div className="overflow-y-auto overflow-x-auto flex-1 p-0 sm:p-4 custom-scrollbar">
-                <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap min-w-[600px]">
+                <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap min-w-[800px]">
                   <thead className="text-[10px] uppercase text-gray-500 font-bold sticky top-0 bg-[#121824] z-10 shadow-sm">
                     <tr>
                       <th className="p-3 pl-4 sm:pl-2">Item Name</th>
+                      <th className="p-3">Category Move</th>
                       <th className="p-3">Purchase (Cost)</th>
                       <th className="p-3">Selling (Menu)</th>
                       <th className="p-3 text-right pr-2">Live Stock</th>
@@ -182,21 +203,48 @@ export default function InventoryManager() {
                   <tbody className="divide-y divide-[#1E293B]">
                     {inventory.filter(item => item.category === activeCategory).map(item => (
                       <tr key={item.id} className="hover:bg-[#1A2235]/50 transition-colors group">
-                        <td className="p-3 pl-4 sm:pl-2 font-bold text-white">{item.item_name}</td>
-                        <td className="p-3"><input type="number" value={item.cost_price} onChange={(e) => handleUpdateItem(item.id, 'cost_price', e.target.value)} className="bg-transparent w-16 outline-none font-bold text-gray-400" /></td>
-                        <td className="p-3"><input type="number" value={item.selling_price} onChange={(e) => handleUpdateItem(item.id, 'selling_price', e.target.value)} className="bg-transparent w-16 outline-none font-bold text-[#00D0FF]" /></td>
+                        
+                        {/* 🟢 EDITABLE ITEM NAME */}
+                        <td className="p-3 pl-4 sm:pl-2">
+                           <input type="text" value={item.item_name} onChange={(e) => handleUpdateItem(item.id, 'item_name', e.target.value)} className="bg-transparent w-full outline-none font-bold text-white focus:text-[#00D0FF] transition-colors border-b border-transparent focus:border-[#00D0FF]" />
+                        </td>
+
+                        {/* 🟢 EDITABLE CATEGORY DROPDOWN */}
+                        <td className="p-3">
+                           <select value={item.category} onChange={(e) => handleUpdateItem(item.id, 'category', e.target.value)} className="bg-transparent w-full outline-none text-gray-400 focus:text-white appearance-none cursor-pointer hover:text-white">
+                              {categories.map(cat => <option key={cat} value={cat} className="bg-[#121824]">{cat}</option>)}
+                           </select>
+                        </td>
+
+                        <td className="p-3">
+                           <div className="flex items-center gap-1">
+                              <span className="text-gray-600 font-bold">₹</span>
+                              <input type="number" value={item.cost_price} onChange={(e) => handleUpdateItem(item.id, 'cost_price', e.target.value)} className="bg-transparent w-16 outline-none font-bold text-gray-400 focus:text-white" />
+                           </div>
+                        </td>
+                        
+                        <td className="p-3">
+                           <div className="flex items-center gap-1">
+                              <span className="text-[#00D0FF]/50 font-bold">₹</span>
+                              <input type="number" value={item.selling_price} onChange={(e) => handleUpdateItem(item.id, 'selling_price', e.target.value)} className="bg-transparent w-16 outline-none font-bold text-[#00D0FF]" />
+                           </div>
+                        </td>
+
                         <td className="p-3 text-right pr-2">
                           {item.stock_level !== null ? (
                             <div className="flex items-center justify-end gap-1.5 sm:gap-2">
-                              <button onClick={() => handleStockAdjust(item.id, -1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748]"><Minus size={12}/></button>
-                              <span className="font-bold w-6 text-center">{item.stock_level}</span>
-                              <button onClick={() => handleStockAdjust(item.id, 1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748]"><Plus size={12}/></button>
+                              <button onClick={() => handleStockAdjust(item.id, -1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748] hover:bg-white hover:text-black transition-all"><Minus size={12}/></button>
+                              <span className="font-bold w-8 text-center">{item.stock_level}</span>
+                              <button onClick={() => handleStockAdjust(item.id, 1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748] hover:bg-white hover:text-black transition-all"><Plus size={12}/></button>
                             </div>
                           ) : <span className="text-gray-600 text-[10px] sm:text-xs italic">N/A</span>}
                         </td>
-                        <td className="p-3 pr-4 text-right"><button onClick={() => handleDeleteItem(item.id)} className="text-gray-600 hover:text-red-500 p-2"><Trash2 size={16}/></button></td>
+                        <td className="p-3 pr-4 text-right"><button onClick={() => handleDeleteItem(item.id)} className="text-gray-600 hover:text-red-500 p-2 transition-all"><Trash2 size={16}/></button></td>
                       </tr>
                     ))}
+                    {inventory.filter(item => item.category === activeCategory).length === 0 && (
+                        <tr><td colSpan={6} className="p-8 text-center text-gray-500 italic">No items in this category.</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
