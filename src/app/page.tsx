@@ -257,7 +257,7 @@ export default function GamerarenaMasterERP() {
       await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: sGameTotal }).eq('id', s.id);
       notifiedRef.current.delete(s.id);
     }
-    setModal(null); await fetchSessions(); setIsProcessing(false);
+    setModal(null); setPayMethod('Cash'); setSplitCash(0); await fetchSessions(); setIsProcessing(false);
   };
 
   const handleTransferConfirm = async () => {
@@ -332,7 +332,7 @@ export default function GamerarenaMasterERP() {
 
       await supabase.from('sales').update({ fnb_total: newFnbTotal, fnb_items: newItemsStr }).eq('id', modal.session.id);
     }
-    setModal(null); setCart([]); await fetchSessions(); await fetchInventory(); setIsProcessing(false);
+    setModal(null); setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); await fetchSessions(); await fetchInventory(); setIsProcessing(false);
   };
 
   const handleAddMiscIncome = async () => {
@@ -341,7 +341,7 @@ export default function GamerarenaMasterERP() {
     const amount = Number(miscAmount);
     let methodStr = miscPayMethod === 'Split Payment' ? `Split|${miscSplitCash}|${amount - miscSplitCash}` : miscPayMethod;
     await supabase.from('cafe_orders').insert({ date: getTodayString(), items: `[Retail] ${miscDesc}`, total_revenue: amount, total_cost: 0, profit: amount, method: methodStr });
-    setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setIsProcessing(false);
+    setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setIsProcessing(false);
   };
 
   const getEndOfDaySummary = async () => {
@@ -496,9 +496,9 @@ export default function GamerarenaMasterERP() {
             <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
               <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
               
-              <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setModal({ type: 'fnb', isWalkin: true }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
+              <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); setModal({ type: 'fnb', isWalkin: true }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
               
-              <button onClick={() => setModal({ type: 'misc_income' })} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Tag size={14} /> Misc</button>
+              <button onClick={() => { setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setModal({ type: 'misc_income' }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Tag size={14} /> Misc</button>
 
               <div className="hidden sm:block h-6 w-px bg-[#1E293B] mx-1"></div>
               {currentTime && <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p><p className="text-white text-sm font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p></div>}
@@ -569,7 +569,7 @@ export default function GamerarenaMasterERP() {
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => { setManualTotal(grandTotal); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2.5 sm:py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
+                          <button onClick={() => { setManualTotal(grandTotal); setPayMethod('Cash'); setSplitCash(0); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2.5 sm:py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
                           
                           <div className="grid grid-cols-4 gap-1.5">
                              <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
@@ -820,13 +820,13 @@ export default function GamerarenaMasterERP() {
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
-                  <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" onChange={e => setPayMethod(e.target.value)}>
+                  <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
                       <option>Cash</option><option>UPI</option><option>Split Payment</option>
                   </select>
                 </div>
                 {payMethod === 'Split Payment' && (
                   <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
-                    <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" onChange={e => setSplitCash(Number(e.target.value))} />
+                    <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" value={splitCash || ''} onChange={e => setSplitCash(Number(e.target.value))} />
                     <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
                   </div>
                 )}
@@ -1093,7 +1093,7 @@ export default function GamerarenaMasterERP() {
                            <select className="w-full mt-1 p-2 text-xs bg-[#0B0E14] rounded-lg border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={fnbPayMethod} onChange={e => setFnbPayMethod(e.target.value)}>
                                <option>Cash</option><option>UPI</option><option>Split Payment</option>
                            </select>
-                           {fnbPayMethod === 'Split Payment' && <input type="number" className="w-full mt-2 p-2 bg-[#0B0E14] rounded-lg outline-none font-bold text-xs" placeholder="Cash Amount" onChange={e => setFnbSplitCash(Number(e.target.value))} />}
+                           {fnbPayMethod === 'Split Payment' && <input type="number" className="w-full mt-2 p-2 bg-[#0B0E14] rounded-lg outline-none font-bold text-xs" placeholder="Cash Amount" value={fnbSplitCash || ''} onChange={e => setFnbSplitCash(Number(e.target.value))} />}
                         </div>
                       )}
                     </div>
