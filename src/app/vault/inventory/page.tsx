@@ -49,7 +49,7 @@ export default function InventoryManager() {
     if (salesData) setTodaySessions(salesData);
   }
 
-  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Floor Access (Shreenad@0511)
+  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Admin@2026
   const handleLogin = async (e: any) => {
     e.preventDefault();
     try {
@@ -58,8 +58,8 @@ export default function InventoryManager() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      // Checking the mathematical hash for the Floor PIN
-      if (hashHex === '04ea4b5d4663d8bc7eafcb5e70d369c1d34033b3e8c95ccf38de5a8e34e64933') {
+      // Checking the mathematical hash instead of the plaintext password
+      if (hashHex === 'a36aef5a11c4073fbe60314fc9df530a9d5f986533594d1f5190742ff9e0e408') {
         setIsAuthenticated(true);
       } else {
         alert('Incorrect Password');
