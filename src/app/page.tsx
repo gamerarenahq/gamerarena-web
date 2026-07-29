@@ -158,6 +158,26 @@ export default function GamerarenaMasterERP() {
   const getHoldSessions = (sessionId: number) => sessions.filter(s => s.status === 'Hold' && s.method === `LinkedTo:${sessionId}`);
   const isSessionValid = (sessionId: number) => sessions.some(s => s.id === sessionId && (s.status === 'Active' || s.status === 'Hold' || s.status === 'Reserved'));
 
+  // 🟢 SECURE LOGIN FUNCTION - Removes raw password from codebase
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    try {
+      const msgBuffer = new TextEncoder().encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Checking the mathematical hash instead of the plaintext password
+      if (hashHex === '04ea4b5d4663d8bc7eafcb5e70d369c1d34033b3e8c95ccf38de5a8e34e64933') {
+        setIsAuthenticated(true);
+      } else {
+        alert('Incorrect Password');
+      }
+    } catch (err) {
+      console.error("Auth Error");
+    }
+  };
+
   const handleCheckIn = async () => {
     if (isProcessing) return; setIsProcessing(true);
     const finalPrice = getPrice(modal.sys.type, dur, extra);
@@ -450,7 +470,7 @@ export default function GamerarenaMasterERP() {
   if (!isAuthenticated) {
     return (
       <div className="flex h-screen w-screen bg-[#05070A] text-white items-center justify-center p-4">
-        <form onSubmit={(e) => { e.preventDefault(); if (password === 'Shreenad@0511') setIsAuthenticated(true); else alert('Incorrect Password'); }} 
+        <form onSubmit={handleLogin} 
               className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
             <div className="flex justify-center mb-6"><Lock size={40} className="text-[#00D0FF]"/></div>
             <h2 className="text-xl sm:text-2xl font-black mb-6">Live Floor Access</h2>

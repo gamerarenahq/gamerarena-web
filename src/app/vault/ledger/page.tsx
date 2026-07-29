@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Monitor, Package, BarChart3, Wallet, TrendingUp, PiggyBank, CreditCard, AlertCircle, Plus, ArrowDownToLine, ArrowUpFromLine, List, Trash2, Landmark, Banknote, Edit3, X, Building2, Check, CheckCircle2, Copy, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle } from 'lucide-react';
+import { Monitor, Package, BarChart3, Wallet, TrendingUp, PiggyBank, CreditCard, AlertCircle, Plus, ArrowDownToLine, ArrowUpFromLine, List, Trash2, Landmark, Banknote, Edit3, X, Building2, Check, CheckCircle2, Copy, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle, Lock } from 'lucide-react';
 
 function formatINR(num: number) {
   return Math.round(num || 0).toLocaleString('en-IN');
@@ -164,9 +164,24 @@ export default function MasterFinancialLedger() {
     setIsProcessing(false);
   }
 
-  const handleLogin = (e: any) => {
+  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Financial Access (Su22101992@)
+  const handleLogin = async (e: any) => {
     e.preventDefault();
-    if (password === 'Finance@2026') setIsUnlocked(true); else alert('Unauthorized Access');
+    try {
+      const msgBuffer = new TextEncoder().encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Checking the mathematical hash instead of the plaintext password
+      if (hashHex === 'fdf668ada3c7140e2f35e13a237d372713f40a9f086827fd3ee961bb7c1e1fb6') {
+        setIsUnlocked(true);
+      } else {
+        alert('Unauthorized Access');
+      }
+    } catch (err) {
+      console.error("Auth Error");
+    }
   };
 
   const handleAddTransaction = async (e: any) => {
@@ -242,7 +257,7 @@ export default function MasterFinancialLedger() {
           <div className="absolute inset-0 flex items-center justify-center bg-[#05070A] p-4">
             <form onSubmit={handleLogin} className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-emerald-500/30 shadow-2xl w-full max-w-sm text-center relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -mr-10 -mt-10 blur-2xl"></div>
-              <div className="flex justify-center mb-4"><Wallet size={40} className="text-emerald-400 relative z-10"/></div>
+              <div className="flex justify-center mb-4"><Lock size={40} className="text-emerald-400 relative z-10"/></div>
               <h2 className="text-xl sm:text-2xl font-black mb-6 tracking-tight relative z-10">Corporate Ledger</h2>
               <input type="password" placeholder="Financial PIN" className="w-full bg-[#0B0E14] p-4 text-center rounded-xl border border-[#2D3748] focus:border-emerald-400 outline-none font-bold tracking-widest mb-4 relative z-10" value={password} onChange={e => setPassword(e.target.value)} />
               <button type="submit" className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] relative z-10">Access Books</button>

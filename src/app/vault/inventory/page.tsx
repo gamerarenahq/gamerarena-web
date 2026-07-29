@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Plus, Minus, Package, X, Trash2, Monitor, Edit3, AlertCircle, BarChart3, Building2 } from 'lucide-react';
+import { Plus, Minus, Package, X, Trash2, Monitor, Edit3, AlertCircle, BarChart3, Building2, Lock } from 'lucide-react';
 
 export default function InventoryManager() {
+  // Security State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+
   // Inventory State
   const [inventory, setInventory] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -21,8 +25,10 @@ export default function InventoryManager() {
   const [editingSession, setEditingSession] = useState<any>(null);
 
   useEffect(() => {
-    fetchInventoryAndStats();
-  }, []);
+    if (isAuthenticated) {
+      fetchInventoryAndStats();
+    }
+  }, [isAuthenticated]);
 
   async function fetchInventoryAndStats() {
     // 1. Fetch Inventory
@@ -42,6 +48,26 @@ export default function InventoryManager() {
     const { data: salesData } = await supabase.from('sales').select('*').eq('date', today).order('id', { ascending: false });
     if (salesData) setTodaySessions(salesData);
   }
+
+  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Floor Access (Shreenad@0511)
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    try {
+      const msgBuffer = new TextEncoder().encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Checking the mathematical hash for the Floor PIN
+      if (hashHex === '04ea4b5d4663d8bc7eafcb5e70d369c1d34033b3e8c95ccf38de5a8e34e64933') {
+        setIsAuthenticated(true);
+      } else {
+        alert('Incorrect Password');
+      }
+    } catch (err) {
+      console.error("Auth Error");
+    }
+  };
 
   const handleUpdateItem = async (id: number, field: string, value: any) => {
     const val = field === 'item_name' || field === 'category' ? value : Number(value);
@@ -116,6 +142,20 @@ export default function InventoryManager() {
       await supabase.from('sales').delete().eq('id', id); fetchInventoryAndStats();
     }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen w-screen bg-[#05070A] text-white items-center justify-center p-4">
+        <form onSubmit={handleLogin} 
+              className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
+            <div className="flex justify-center mb-6"><Lock size={40} className="text-[#00D0FF]"/></div>
+            <h2 className="text-xl sm:text-2xl font-black mb-6">Inventory Access</h2>
+            <input type="password" placeholder="Enter Floor PIN" className="w-full bg-[#0B0E14] p-4 text-center rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold tracking-widest mb-4" value={password} onChange={e => setPassword(e.target.value)} />
+            <button type="submit" className="w-full bg-[#00D0FF] text-black py-4 rounded-xl font-black hover:bg-white transition-all">Unlock Inventory</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">

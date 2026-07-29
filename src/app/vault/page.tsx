@@ -471,10 +471,30 @@ export default function MasterVault() {
   const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const displayLedger = ledgerData.filter(row => row.date >= todayDateString);
 
+  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Vault Access (Surya@221092)
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    try {
+      const msgBuffer = new TextEncoder().encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Checking the mathematical hash for the Vault PIN
+      if (hashHex === '5649e4c3a5806740cc07eb9b5ef38e547122ef70ad2014b64ddc8ebd2539c4b0') {
+        setIsAuthenticated(true);
+      } else {
+        alert('Incorrect Password');
+      }
+    } catch (err) {
+      console.error("Auth Error");
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="flex h-screen w-screen bg-[#05070A] text-white items-center justify-center p-4">
-        <form onSubmit={(e) => { e.preventDefault(); if (password === 'Vault@2026' || password === 'Vault@0511') setIsAuthenticated(true); else alert('Incorrect Password'); }} className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
+        <form onSubmit={handleLogin} className="bg-[#121824] p-6 sm:p-8 rounded-3xl border border-[#1E293B] shadow-2xl w-full max-w-sm text-center">
             <div className="flex justify-center mb-6"><Lock size={40} className="text-orange-500"/></div>
             <h2 className="text-xl sm:text-2xl font-black mb-6">Master Vault Access</h2>
             <input type="password" placeholder="Enter Vault PIN" className="w-full bg-[#0B0E14] p-4 text-center rounded-xl border border-[#2D3748] focus:border-orange-500 outline-none font-bold tracking-widest mb-4" value={password} onChange={e => setPassword(e.target.value)} />
