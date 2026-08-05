@@ -158,7 +158,6 @@ export default function GamerarenaMasterERP() {
   const getHoldSessions = (sessionId: number) => sessions.filter(s => s.status === 'Hold' && s.method === `LinkedTo:${sessionId}`);
   const isSessionValid = (sessionId: number) => sessions.some(s => s.id === sessionId && (s.status === 'Active' || s.status === 'Hold' || s.status === 'Reserved'));
 
-  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Admin@2026
   const handleLogin = async (e: any) => {
     e.preventDefault();
     try {
@@ -167,7 +166,6 @@ export default function GamerarenaMasterERP() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      // Checking the mathematical hash instead of the plaintext password
       if (hashHex === 'a36aef5a11c4073fbe60314fc9df530a9d5f986533594d1f5190742ff9e0e408') {
         setIsAuthenticated(true);
       } else {
@@ -311,8 +309,10 @@ export default function GamerarenaMasterERP() {
           await supabase.from('inventory').update({ stock_level: cartItem.stock - cartItem.qty }).eq('id', cartItem.id);
         }
       }
-      const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name}`); });
+      // Stripping restricted characters to prevent ghosting bugs
+      const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name.replace(/\|/g, '').trim()}`); });
       const newItemsStr = newNames.join(" | ");
+      
       let walkinMethod = fnbPayMethod === 'Split Payment' ? `Split|${fnbSplitCash}|${newFnbTotal - fnbSplitCash}` : fnbPayMethod;
       await supabase.from('cafe_orders').insert({ date: getTodayString(), items: newItemsStr, total_revenue: newFnbTotal, total_cost: newFnbCost, profit: newFnbTotal - newFnbCost, method: walkinMethod });
     } else {
@@ -336,7 +336,8 @@ export default function GamerarenaMasterERP() {
         }
       }
 
-      const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name}`); });
+      // Stripping restricted characters to prevent ghosting bugs
+      const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name.replace(/\|/g, '').trim()}`); });
       const newItemsStr = newNames.join(" | ");
 
       if (deltaTotal !== 0) {
@@ -344,7 +345,8 @@ export default function GamerarenaMasterERP() {
           for (const [id, diff] of Object.entries(deltaItems)) {
               if (diff !== 0) {
                   const itemName = cafeMenu.find(m => String(m.id) === id || m.name === id)?.name || id;
-                  deltaLogNames.push(`${diff > 0 ? '+' : ''}${diff}x ${itemName}`);
+                  const safeName = itemName.replace(/\|/g, '').trim();
+                  deltaLogNames.push(`${diff > 0 ? '+' : ''}${diff}x ${safeName}`);
               }
           }
           await supabase.from('cafe_orders').insert({ date: getTodayString(), items: `[Tab Update] ${deltaLogNames.join(" | ")}`, total_revenue: deltaTotal, total_cost: deltaCost, profit: deltaTotal - deltaCost, method: 'Tab' });
@@ -436,8 +438,9 @@ export default function GamerarenaMasterERP() {
     setIsProcessing(false);
   };
 
+  // 🟢 FIX 1: PENDING TOTAL NOW INCLUDES 'HOLD' SESSIONS (MERGES/TRANSFERS)
+  const totalFloorPending = sessions.filter(s => ['Active', 'Hold'].includes(s.status)).reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
   const activeOrReserved = sessions.filter(s => ['Active', 'Reserved'].includes(s.status));
-  const totalFloorPending = activeOrReserved.filter(s=>s.status==='Active').reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
 
   let combinedGamingTotal = 0; let combinedFnbTotal = 0;
   let aggregatedFnb: string[] = [];
@@ -631,11 +634,13 @@ export default function GamerarenaMasterERP() {
                              }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit F&B"><Coffee size={14}/></button>
                           </div>
 
-                          <button onClick={() => { setIsBookingMode(true); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
+                          {/* 🟢 FIX 2: RESET DEFAULT SETUP VARIABLES FOR ACTIVE-FUTURE BOOKINGS */}
+                          <button onClick={() => { setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
                         </div>
                     </div>
                   ) : (
-                    <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full py-6 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[130px]">
+                    {/* 🟢 FIX 2: RESET DEFAULT SETUP VARIABLES FOR NEW CHECK-INS */}
+                    <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full py-6 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[130px]">
                       <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-2 rounded-full transition-all"><Plus size={16} /></div>
                       <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-xs tracking-wide">Check In / Reserve</span>
                     </button>
@@ -700,7 +705,7 @@ export default function GamerarenaMasterERP() {
                   </div>
                 )}
                 
-                <input className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder={(isBookingMode || modal.hasActive) ? "Gamer Name (Required)" : "Gamer Name"} onChange={e => setName(e.target.value)} autoFocus/>
+                <input className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder={(isBookingMode || modal.hasActive) ? "Gamer Name (Required)" : "Gamer Name"} value={name} onChange={e => setName(e.target.value)} autoFocus/>
                 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
