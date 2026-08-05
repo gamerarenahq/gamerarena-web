@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag, Building2, Edit2, Trash2 } from 'lucide-react';
+import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag, Building2, Edit2, Trash2, Users } from 'lucide-react';
 
 function formatINR(num: number) { return Math.round(num || 0).toLocaleString('en-IN'); }
 
@@ -113,6 +113,11 @@ export default function GamerarenaMasterERP() {
   const [miscPayMethod, setMiscPayMethod] = useState('Cash');
   const [miscSplitCash, setMiscSplitCash] = useState(0);
 
+  // 🟢 MEMBERSHIP STATES
+  const [useMembership, setUseMembership] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [memberReport, setMemberReport] = useState('');
+
   const notifiedRef = useRef(new Set<number>());
 
   useEffect(() => {
@@ -165,15 +170,10 @@ export default function GamerarenaMasterERP() {
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
       if (hashHex === 'a36aef5a11c4073fbe60314fc9df530a9d5f986533594d1f5190742ff9e0e408') {
         setIsAuthenticated(true);
-      } else {
-        alert('Incorrect Password');
-      }
-    } catch (err) {
-      console.error("Auth Error");
-    }
+      } else { alert('Incorrect Password'); }
+    } catch (err) { console.error("Auth Error"); }
   };
 
   const handleCheckIn = async () => {
@@ -209,12 +209,10 @@ export default function GamerarenaMasterERP() {
     if (isProcessing) return; setIsProcessing(true);
     if (!isSessionValid(modal.session.id)) { setModal(null); await fetchSessions(); setIsProcessing(false); return; }
     const newDur = modal.session.duration + extendDur;
-    
     const currentExtra = getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total));
     const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
     
     let newTotal = 0;
-    
     if (extendDur < 0) {
         const normalOld = getPrice(modal.sys.type, modal.session.duration, editExtra);
         const normalNew = getPrice(modal.sys.type, newDur, editExtra);
@@ -238,6 +236,7 @@ export default function GamerarenaMasterERP() {
     setModal(null); await fetchSessions(); setIsProcessing(false);
   };
 
+  // 🟢 SECURE CHECKOUT WITH MEMBERSHIP DEDUCTION
   const handleCheckout = async () => {
     if (isProcessing) return; setIsProcessing(true);
     const finalTotal = Number(manualTotal);
@@ -245,18 +244,33 @@ export default function GamerarenaMasterERP() {
     let remUPI = payMethod === 'Split Payment' ? (finalTotal - splitCash) : (payMethod === 'UPI' ? finalTotal : 0);
     
     const sessionsToClose = [...getHoldSessions(modal.session.id), modal.session];
+    const totalHoursPlayed = sessionsToClose.reduce((sum, s) => sum + Number(s.duration), 0);
     
-    const expectedTotal = sessionsToClose.reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
+    let selectedMemberName = '';
+    if (useMembership && selectedMemberId) {
+        const memberItem = cafeMenu.find(m => String(m.id) === selectedMemberId);
+        if (memberItem) {
+            selectedMemberName = memberItem.name.split('|')[0].trim();
+            const newStock = Math.max(0, Number(memberItem.stock || 0) - totalHoursPlayed);
+            await supabase.from('inventory').update({ stock_level: newStock }).eq('id', memberItem.id);
+        }
+    }
+
+    const expectedTotal = sessionsToClose.reduce((sum, s) => {
+        const gameCost = useMembership ? 0 : Number(s.total); 
+        return sum + gameCost + Number(s.fnb_total || 0);
+    }, 0);
+    
     let remainingDifference = expectedTotal - finalTotal;
 
     for (const s of sessionsToClose) {
-      let sGameTotal = Number(s.total);
+      let sGameTotal = useMembership ? 0 : Number(s.total);
       
-      if (remainingDifference > 0) {
+      if (remainingDifference > 0 && !useMembership) {
           const applicableDiscount = Math.min(sGameTotal, remainingDifference);
           sGameTotal -= applicableDiscount;
           remainingDifference -= applicableDiscount;
-      } else if (remainingDifference < 0) {
+      } else if (remainingDifference < 0 && !useMembership) {
           sGameTotal += Math.abs(remainingDifference);
           remainingDifference = 0;
       }
@@ -272,10 +286,16 @@ export default function GamerarenaMasterERP() {
       if (thisCash > 0 && thisUPI > 0) sMethodStr = `Split|${thisCash}|${thisUPI}`;
       else if (thisUPI > 0 && thisCash === 0) sMethodStr = 'UPI';
 
+      if (useMembership && selectedMemberName) {
+         sMethodStr = `Member[${selectedMemberName}] | ${sMethodStr}`;
+      }
+
       await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: sGameTotal }).eq('id', s.id);
       notifiedRef.current.delete(s.id);
     }
-    setModal(null); setPayMethod('Cash'); setSplitCash(0); await fetchSessions(); setIsProcessing(false);
+    
+    setModal(null); setPayMethod('Cash'); setSplitCash(0); setUseMembership(false); setSelectedMemberId('');
+    await fetchSessions(); await fetchInventory(); setIsProcessing(false);
   };
 
   const handleTransferConfirm = async () => {
@@ -309,10 +329,8 @@ export default function GamerarenaMasterERP() {
           await supabase.from('inventory').update({ stock_level: cartItem.stock - cartItem.qty }).eq('id', cartItem.id);
         }
       }
-      // Stripping restricted characters to prevent ghosting bugs
       const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name.replace(/\|/g, '').trim()}`); });
       const newItemsStr = newNames.join(" | ");
-      
       let walkinMethod = fnbPayMethod === 'Split Payment' ? `Split|${fnbSplitCash}|${newFnbTotal - fnbSplitCash}` : fnbPayMethod;
       await supabase.from('cafe_orders').insert({ date: getTodayString(), items: newItemsStr, total_revenue: newFnbTotal, total_cost: newFnbCost, profit: newFnbTotal - newFnbCost, method: walkinMethod });
     } else {
@@ -336,7 +354,6 @@ export default function GamerarenaMasterERP() {
         }
       }
 
-      // Stripping restricted characters to prevent ghosting bugs
       const newNames: string[] = []; cleanCart.forEach(c => { newNames.push(`${c.qty}x ${c.name.replace(/\|/g, '').trim()}`); });
       const newItemsStr = newNames.join(" | ");
 
@@ -345,8 +362,7 @@ export default function GamerarenaMasterERP() {
           for (const [id, diff] of Object.entries(deltaItems)) {
               if (diff !== 0) {
                   const itemName = cafeMenu.find(m => String(m.id) === id || m.name === id)?.name || id;
-                  const safeName = itemName.replace(/\|/g, '').trim();
-                  deltaLogNames.push(`${diff > 0 ? '+' : ''}${diff}x ${safeName}`);
+                  deltaLogNames.push(`${diff > 0 ? '+' : ''}${diff}x ${itemName.replace(/\|/g, '').trim()}`);
               }
           }
           await supabase.from('cafe_orders').insert({ date: getTodayString(), items: `[Tab Update] ${deltaLogNames.join(" | ")}`, total_revenue: deltaTotal, total_cost: deltaCost, profit: deltaTotal - deltaCost, method: 'Tab' });
@@ -366,6 +382,34 @@ export default function GamerarenaMasterERP() {
     setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setIsProcessing(false);
   };
 
+  // 🟢 MEMBER WHATSAPP REPORT GENERATOR
+  const generateMemberReport = async (memberNameFull: string, hoursLeft: number, sysType: string) => {
+    setIsProcessing(true);
+    const cleanName = memberNameFull.split('|')[0].trim();
+    const { data } = await supabase.from('sales').select('*').like('method', `Member[${cleanName}]%`).order('date', { ascending: true });
+    
+    let totalUsed = 0;
+    let text = `*🎮 Gamerarena Membership*\n`;
+    text += `*Gamer:* ${cleanName}\n`;
+    text += `*System:* ${sysType}\n\n`;
+    
+    if (data && data.length > 0) {
+       data.forEach(s => {
+          text += `📅 ${s.date} | ${s.system} | ${s.duration} Hrs\n`;
+          totalUsed += Number(s.duration);
+       });
+    } else {
+       text += `No sessions logged yet.\n`;
+    }
+    
+    text += `\n*Total Package:* ${totalUsed + hoursLeft} Hrs\n`;
+    text += `*Total Used:* ${totalUsed} Hrs\n`;
+    text += `*Hours Remaining: ${hoursLeft} Hrs*\n`;
+    
+    setMemberReport(text);
+    setIsProcessing(false);
+  };
+
   const getEndOfDaySummary = async () => {
     setIsProcessing(true);
     const todayStr = getTodayString();
@@ -381,7 +425,13 @@ export default function GamerarenaMasterERP() {
          else if (String(s.system).includes('PS')) ps5Rev += gameCost;
          else if (String(s.system).includes('SIM')) simRev += gameCost;
 
-         const m = String(s.method || '').trim();
+         let mRaw = String(s.method || '').trim();
+         let m = mRaw;
+         if (mRaw.startsWith('Member[')) {
+             const parts = mRaw.split('|');
+             m = parts.length > 1 ? parts[1].trim() : 'Cash';
+         }
+
          if (m.startsWith('Split|')) { 
              const parts = m.split('|'); 
              eodCash += Number(parts[1] || 0); 
@@ -438,7 +488,6 @@ export default function GamerarenaMasterERP() {
     setIsProcessing(false);
   };
 
-  // 🟢 FIX 1: PENDING TOTAL NOW INCLUDES 'HOLD' SESSIONS (MERGES/TRANSFERS)
   const totalFloorPending = sessions.filter(s => ['Active', 'Hold'].includes(s.status)).reduce((sum, s) => sum + Number(s.total) + Number(s.fnb_total || 0), 0);
   const activeOrReserved = sessions.filter(s => ['Active', 'Reserved'].includes(s.status));
 
@@ -517,6 +566,8 @@ export default function GamerarenaMasterERP() {
             </div>
 
             <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              <button onClick={() => { setMemberReport(''); setModal({ type: 'members_hub' }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Users size={14} /> Members</button>
+
               <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
               
               <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); setModal({ type: 'fnb', isWalkin: true }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
@@ -592,7 +643,7 @@ export default function GamerarenaMasterERP() {
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => { setManualTotal(grandTotal); setPayMethod('Cash'); setSplitCash(0); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames }); }} className={`w-full text-black py-2.5 sm:py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
+                          <button onClick={() => { setManualTotal(grandTotal); setPayMethod('Cash'); setSplitCash(0); setUseMembership(false); setSelectedMemberId(''); setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames, combinedFnbTotal, combinedGamingTotal }); }} className={`w-full text-black py-2.5 sm:py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
                           
                           <div className="grid grid-cols-4 gap-1.5">
                              <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
@@ -634,12 +685,10 @@ export default function GamerarenaMasterERP() {
                              }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit F&B"><Coffee size={14}/></button>
                           </div>
 
-                          {/* 🟢 FIX 2: RESET DEFAULT SETUP VARIABLES FOR ACTIVE-FUTURE BOOKINGS */}
                           <button onClick={() => { setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
                         </div>
                     </div>
                   ) : (
-                    {/* 🟢 FIX 2: RESET DEFAULT SETUP VARIABLES FOR NEW CHECK-INS */}
                     <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full py-6 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[130px]">
                       <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-2 rounded-full transition-all"><Plus size={16} /></div>
                       <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-xs tracking-wide">Check In / Reserve</span>
@@ -690,9 +739,66 @@ export default function GamerarenaMasterERP() {
                   {modal.type === 'close_day' && `End of Day Report`}
                   {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Edit F&B Tab`)}
                   {modal.type === 'misc_income' && `Misc / Retail Income`}
+                  {modal.type === 'members_hub' && `Memberships Hub`}
                 </h2>
                 <button onClick={() => setModal(null)} className="p-2 bg-[#0B0E14] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"><X size={16}/></button>
             </div>
+
+            {/* 🟢 NEW: MEMBERSHIP HUB MODAL */}
+            {modal.type === 'members_hub' && (() => {
+               const allMembers = cafeMenu.filter(i => String(i.category).startsWith('Membership - '));
+               
+               return (
+                 <div className="space-y-4">
+                    {!memberReport ? (
+                       <>
+                          <p className="text-xs text-gray-400 mb-2">Select a member to view their usage history and generate a WhatsApp summary.</p>
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                             {allMembers.length === 0 ? (
+                                 <p className="text-gray-500 italic text-center text-sm py-4">No active memberships found in Inventory.</p>
+                             ) : (
+                                 allMembers.map(m => {
+                                   const sysType = m.category.replace('Membership - ', '');
+                                   const cleanName = m.name.split('|')[0].trim();
+                                   
+                                   // Validity check visual indicator
+                                   const expMatch = m.name.match(/Exp:\s*(\d{4}-\d{2}-\d{2})/i);
+                                   let isExpired = false;
+                                   if (expMatch) {
+                                      const expDate = new Date(expMatch[1]);
+                                      const today = new Date(getTodayString());
+                                      if (expDate < today) isExpired = true;
+                                   }
+
+                                   return (
+                                     <button key={m.id} onClick={() => generateMemberReport(m.name, Number(m.stock || 0), sysType)} className={`w-full bg-[#0B0E14] border transition-all p-4 rounded-xl flex justify-between items-center text-left ${isExpired ? 'border-red-500/30 opacity-60' : 'hover:bg-[#1A2235] border-[#2D3748] hover:border-purple-500'}`}>
+                                         <div className="flex flex-col">
+                                            <span className="font-bold text-white text-sm">{cleanName}</span>
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase">{sysType} {isExpired ? '- EXPIRED' : ''}</span>
+                                         </div>
+                                         <span className={`${isExpired ? 'text-red-400' : 'text-purple-400'} font-black text-sm`}>{m.stock} Hrs Left</span>
+                                     </button>
+                                   );
+                                 })
+                             )}
+                          </div>
+                       </>
+                    ) : (
+                       <>
+                          <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar">
+                             {memberReport}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 pt-2">
+                             <button onClick={() => setMemberReport('')} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3 rounded-xl font-bold hover:text-white transition-all text-xs">Back to List</button>
+                             <button onClick={() => { navigator.clipboard.writeText(memberReport); alert("Summary copied to clipboard!"); }} className="w-full bg-purple-500 text-white py-3 rounded-xl font-black hover:bg-purple-400 transition-all flex items-center justify-center gap-2 text-xs shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                               <Copy size={14}/> Copy & WhatsApp
+                             </button>
+                          </div>
+                       </>
+                    )}
+                 </div>
+               );
+            })()}
             
             {modal.type === 'checkin' && (
               <div className="space-y-4">
@@ -812,54 +918,107 @@ export default function GamerarenaMasterERP() {
                 );
             })()}
 
-            {modal.type === 'checkout' && (
-              <div className="space-y-4">
-                <div className="bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] space-y-2 text-sm">
-                  <div className="flex justify-between font-bold border-b border-[#1E293B] pb-2 text-[#00D0FF]">
-                    <span>{modal.session.customer}</span><span>{modal.session.duration} Hrs Active</span>
-                  </div>
-                  {modal.holdTotal > 0 && <div className="flex justify-between text-orange-400 text-xs font-bold mt-2"><span>Includes transfers: {modal.holdNames}</span></div>}
-                  <div className="flex justify-between text-gray-400 mt-2"><span>Combined Gaming:</span><span>₹{combinedGamingTotal}</span></div>
-                  
-                  <div className="pt-2 border-t border-[#1E293B]">
-                    <div className="flex justify-between text-gray-400 mb-1">
-                      <span>Combined F&B:</span>
-                      <span className="font-bold text-white">₹{combinedFnbTotal}</span>
-                    </div>
-                    {aggregatedFnb.length > 0 && (
-                      <div className="bg-[#1A2235] p-2 rounded-xl mt-2 text-[10px] text-[#00D0FF] font-bold space-y-1">
-                        {aggregatedFnb.map((itemName: string, i: number) => (
-                           <div key={i} className="flex justify-between"><span>{itemName}</span></div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+            {modal.type === 'checkout' && (() => {
+               // 🟢 GET THE ACTUAL SYSTEM TYPE (PC, PS5, or Racing Sim) FOR THIS SESSION
+               const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
+               const targetCategory = `Membership - ${sysType}`;
+               const validMembers = cafeMenu.filter(i => i.category === targetCategory);
 
-                <div>
-                   <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Final Combined Amount</label>
-                   <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
-                       <div className="px-3 text-[#00D0FF]"><IndianRupee size={18}/></div>
-                       <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => setManualTotal(e.target.value)} />
+               return (
+                 <div className="space-y-4">
+                   <div className="bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] space-y-2 text-sm">
+                     <div className="flex justify-between font-bold border-b border-[#1E293B] pb-2 text-[#00D0FF]">
+                       <span>{modal.session.customer}</span><span>{modal.session.duration} Hrs Active</span>
+                     </div>
+                     {modal.holdTotal > 0 && <div className="flex justify-between text-orange-400 text-xs font-bold mt-2"><span>Includes transfers: {modal.holdNames}</span></div>}
+                     
+                     <div className="flex justify-between text-gray-400 mt-2">
+                        <span>Combined Gaming:</span>
+                        <span className={useMembership ? 'text-gray-500 line-through' : 'text-white'}>₹{modal.combinedGamingTotal}</span>
+                     </div>
+                     
+                     <div className="pt-2 border-t border-[#1E293B]">
+                       <div className="flex justify-between text-gray-400 mb-1">
+                         <span>Combined F&B:</span>
+                         <span className="font-bold text-white">₹{modal.combinedFnbTotal}</span>
+                       </div>
+                       {aggregatedFnb.length > 0 && (
+                         <div className="bg-[#1A2235] p-2 rounded-xl mt-2 text-[10px] text-[#00D0FF] font-bold space-y-1">
+                           {aggregatedFnb.map((itemName: string, i: number) => (
+                              <div key={i} className="flex justify-between"><span>{itemName}</span></div>
+                           ))}
+                         </div>
+                       )}
+                     </div>
                    </div>
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
-                  <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
-                      <option>Cash</option><option>UPI</option><option>Split Payment</option>
-                  </select>
-                </div>
-                {payMethod === 'Split Payment' && (
-                  <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
-                    <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" value={splitCash || ''} onChange={e => setSplitCash(Number(e.target.value))} />
-                    <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
-                  </div>
-                )}
-                <button onClick={handleCheckout} disabled={isProcessing} className="w-full bg-[#EF4444] text-white py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-red-600 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                  {isProcessing ? 'Processing...' : 'Confirm & Close'}
-                </button>
-              </div>
-            )}
+
+                   {/* 🟢 NEW: MEMBERSHIP DEDUCTION UI WITH SYSTEM RESTRICTION & EXPIRATION */}
+                   <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl transition-all">
+                      <label className="flex items-center gap-2 text-purple-400 font-bold text-sm cursor-pointer">
+                         <input type="checkbox" className="accent-purple-500 w-4 h-4" checked={useMembership} onChange={e => {
+                             setUseMembership(e.target.checked);
+                             if (e.target.checked) setManualTotal(modal.combinedFnbTotal);
+                             else setManualTotal(modal.combinedGamingTotal + modal.combinedFnbTotal);
+                         }} />
+                         Deduct from <span className="text-white bg-purple-500/20 px-1 rounded">{sysType}</span> Membership
+                      </label>
+                      
+                      {useMembership && (
+                         <div className="mt-3 pt-3 border-t border-purple-500/20">
+                            <select className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-purple-500/50 outline-none text-white focus:border-purple-400"
+                                    value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)}>
+                               <option value="" disabled>Select Valid Member...</option>
+                               {validMembers.length === 0 && <option disabled>No valid {sysType} memberships found.</option>}
+                               {validMembers.map(m => {
+                                  const expMatch = m.name.match(/Exp:\s*(\d{4}-\d{2}-\d{2})/i);
+                                  let isExpired = false;
+                                  if (expMatch) {
+                                     const expDate = new Date(expMatch[1]);
+                                     const today = new Date(getTodayString());
+                                     if (expDate < today) isExpired = true;
+                                  }
+                                  
+                                  return (
+                                     <option key={m.id} value={m.id} disabled={isExpired || Number(m.stock) <= 0}>
+                                        {m.name.split('|')[0].trim()} ({m.stock} Hrs Left) {isExpired ? ' ❌ EXPIRED' : ''}
+                                     </option>
+                                  )
+                               })}
+                            </select>
+                            {selectedMemberId && (
+                               <p className="text-[10px] text-purple-300 mt-2 font-bold bg-[#0B0E14] p-2 rounded-lg border border-purple-500/20">
+                                  Will deduct <span className="text-white text-xs">{[...getHoldSessions(modal.session.id), modal.session].reduce((sum, s) => sum + Number(s.duration), 0)} Hrs</span> from account upon closing.
+                               </p>
+                            )}
+                         </div>
+                      )}
+                   </div>
+
+                   <div>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">{useMembership ? 'Total Pending F&B Amount' : 'Final Combined Amount'}</label>
+                      <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
+                          <div className="px-3 text-[#00D0FF]"><IndianRupee size={18}/></div>
+                          <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => setManualTotal(e.target.value)} />
+                      </div>
+                   </div>
+                   <div>
+                     <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
+                     <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                         <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                     </select>
+                   </div>
+                   {payMethod === 'Split Payment' && (
+                     <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
+                       <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" value={splitCash || ''} onChange={e => setSplitCash(Number(e.target.value))} />
+                       <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
+                     </div>
+                   )}
+                   <button onClick={handleCheckout} disabled={isProcessing || (useMembership && !selectedMemberId)} className="w-full bg-[#EF4444] text-white py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-red-600 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                     {isProcessing ? 'Processing...' : 'Confirm & Close'}
+                   </button>
+                 </div>
+               );
+            })()}
 
             {modal.type === 'edit_time' && (
               <div className="space-y-4">

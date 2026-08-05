@@ -2,25 +2,33 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Plus, Minus, Package, X, Trash2, Monitor, Edit3, AlertCircle, BarChart3, Building2, Lock } from 'lucide-react';
+import { Plus, Minus, Package, X, Trash2, Monitor, Edit3, AlertCircle, BarChart3, Building2, Lock, Users } from 'lucide-react';
+
+function getTodayString() {
+  const d = new Date();
+  const options = { timeZone: 'Asia/Kolkata', year: 'numeric' as const, month: '2-digit' as const, day: '2-digit' as const };
+  return new Intl.DateTimeFormat('en-CA', options).format(d);
+}
 
 export default function InventoryManager() {
-  // Security State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
 
-  // Inventory State
   const [inventory, setInventory] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState('');
+  
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCostPrice, setNewCostPrice] = useState('');
   const [newSellingPrice, setNewSellingPrice] = useState('');
   const [newStockLevel, setNewStockLevel] = useState<number | string>('');
+  
+  // 🟢 NEW MEMBERSHIP STATES
+  const [newExpDate, setNewExpDate] = useState('');
+  const [newPayMethod, setNewPayMethod] = useState('UPI');
 
-  // Daily Ledger State
   const [todaySessions, setTodaySessions] = useState<any[]>([]);
   const [editingSession, setEditingSession] = useState<any>(null);
 
@@ -31,11 +39,17 @@ export default function InventoryManager() {
   }, [isAuthenticated]);
 
   async function fetchInventoryAndStats() {
-    // 1. Fetch Inventory
     const { data: invData } = await supabase.from('inventory').select('*').order('item_name', { ascending: true });
     if (invData) {
       setInventory(invData);
-      const uniqueCats = Array.from(new Set(invData.map(item => item.category))) as string[];
+      let uniqueCats = Array.from(new Set(invData.map(item => item.category))) as string[];
+      
+      // 🟢 FORCE SYSTEM-SPECIFIC MEMBERSHIP CATEGORIES TO EXIST
+      const requiredCats = ['Membership - PS5', 'Membership - PC', 'Membership - Racing Sim'];
+      requiredCats.forEach(c => {
+         if (!uniqueCats.includes(c)) uniqueCats.push(c);
+      });
+      
       setCategories(uniqueCats);
       if (uniqueCats.length > 0) {
         if (!activeCategory) setActiveCategory(uniqueCats[0]);
@@ -43,13 +57,11 @@ export default function InventoryManager() {
       }
     }
 
-    // 2. Fetch Today's Sessions for the Master Override
     const today = new Date().toLocaleDateString('en-CA');
     const { data: salesData } = await supabase.from('sales').select('*').eq('date', today).order('id', { ascending: false });
     if (salesData) setTodaySessions(salesData);
   }
 
-  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Admin@2026
   const handleLogin = async (e: any) => {
     e.preventDefault();
     try {
@@ -58,7 +70,6 @@ export default function InventoryManager() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      // Checking the mathematical hash instead of the plaintext password
       if (hashHex === 'a36aef5a11c4073fbe60314fc9df530a9d5f986533594d1f5190742ff9e0e408') {
         setIsAuthenticated(true);
       } else {
@@ -70,26 +81,26 @@ export default function InventoryManager() {
   };
 
   const handleUpdateItem = async (id: number, field: string, value: any) => {
-    const val = field === 'item_name' || field === 'category' ? value : Number(value);
-    
-    // Optimistically update the UI
+    let val = value;
+    if (field === 'cost_price' || field === 'selling_price' || field === 'stock_level') {
+        val = value === '' ? 0 : Number(value);
+    }
     setInventory(inventory.map(item => item.id === id ? { ...item, [field]: val } : item));
-    
-    // Sync to Supabase
     await supabase.from('inventory').update({ [field]: val }).eq('id', id);
 
-    // If we changed a category to something completely new, we might need to refresh categories
     if (field === 'category') {
         const { data: invData } = await supabase.from('inventory').select('category');
         if (invData) {
-            const uniqueCats = Array.from(new Set(invData.map(item => item.category))) as string[];
+            let uniqueCats = Array.from(new Set(invData.map(item => item.category))) as string[];
+            const requiredCats = ['Membership - PS5', 'Membership - PC', 'Membership - Racing Sim'];
+            requiredCats.forEach(c => { if (!uniqueCats.includes(c)) uniqueCats.push(c); });
             setCategories(uniqueCats);
         }
     }
   };
 
   const handleStockAdjust = async (id: number, increment: number, currentStock: number) => {
-    const newStock = Math.max(0, (currentStock || 0) + increment);
+    const newStock = Math.max(0, (Number(currentStock) || 0) + increment);
     setInventory(inventory.map(item => item.id === id ? { ...item, stock_level: newStock } : item));
     await supabase.from('inventory').update({ stock_level: newStock }).eq('id', id);
   };
@@ -99,8 +110,10 @@ export default function InventoryManager() {
       setInventory(inventory.filter(item => item.id !== id));
       await supabase.from('inventory').delete().eq('id', id);
       
-      // Cleanup categories if that was the last item
-      const remainingCats = Array.from(new Set(inventory.filter(i => i.id !== id).map(item => item.category))) as string[];
+      let remainingCats = Array.from(new Set(inventory.filter(i => i.id !== id).map(item => item.category))) as string[];
+      const requiredCats = ['Membership - PS5', 'Membership - PC', 'Membership - Racing Sim'];
+      requiredCats.forEach(c => { if (!remainingCats.includes(c)) remainingCats.push(c); });
+      
       setCategories(remainingCats);
       if (!remainingCats.includes(activeCategory) && remainingCats.length > 0) {
           setActiveCategory(remainingCats[0]);
@@ -108,17 +121,38 @@ export default function InventoryManager() {
     }
   };
 
+  // 🟢 MASSIVE UPGRADE: ONE-CLICK MEMBERSHIP CREATION & FINANCIAL LOGGING
   const handleAddItem = async (e: any) => {
     e.preventDefault();
+    
+    const isMemCat = newCategory.startsWith('Membership - ');
+    const finalName = isMemCat ? `${newName} | Exp: ${newExpDate}` : newName;
+    const finalCost = isMemCat ? 0 : Number(newCostPrice);
+
     const { data, error } = await supabase.from('inventory').insert([{
-      item_name: newName, category: newCategory, cost_price: Number(newCostPrice),
+      item_name: finalName, category: newCategory, cost_price: finalCost,
       selling_price: Number(newSellingPrice), stock_level: newStockLevel !== '' ? Number(newStockLevel) : null,
-      min_stock_alert: 5
+      min_stock_alert: isMemCat ? 0 : 5
     }]).select();
 
     if (!error && data) {
+      
+      // 🟢 AUTO-LOG INCOME FOR MEMBERSHIPS
+      if (isMemCat) {
+          const sysType = newCategory.replace('Membership - ', '');
+          await supabase.from('cafe_orders').insert([{
+              date: getTodayString(),
+              items: `[Retail] ${sysType} Membership: ${newName}`,
+              total_revenue: Number(newSellingPrice),
+              total_cost: 0,
+              profit: Number(newSellingPrice),
+              method: newPayMethod
+          }]);
+      }
+
       setInventory([...inventory, data[0]]);
-      setNewName(''); setNewCostPrice(''); setNewSellingPrice(''); setNewStockLevel('');
+      setNewName(''); setNewCostPrice(''); setNewSellingPrice(''); setNewStockLevel(''); setNewExpDate('');
+      
       let updatedCategories = categories;
       if (!categories.includes(newCategory)) {
         updatedCategories = [...categories, newCategory];
@@ -157,10 +191,13 @@ export default function InventoryManager() {
     );
   }
 
+  const isMembershipView = activeCategory.startsWith('Membership - ');
+  const isMemCatInput = newCategory.startsWith('Membership - ');
+
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen bg-[#05070A] text-white font-sans overflow-hidden">
       
-      {/* 🟢 UNIFIED DESKTOP SIDEBAR */}
+      {/* SIDEBARS */}
       <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4">
         <a href="/" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Live Floor"><Monitor size={20} /></a>
         <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Inventory"><Package size={20} /></div>
@@ -168,7 +205,6 @@ export default function InventoryManager() {
         <a href="/vault/ledger" className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></a>
       </div>
 
-      {/* 🟢 MOBILE BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0B0E14] border-t border-[#1E293B] flex items-center justify-around z-40 px-2 shadow-2xl">
         <a href="/" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Live Floor"><Monitor size={20} /></a>
         <div className="p-2.5 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all" title="Inventory"><Package size={20} /></div>
@@ -182,23 +218,26 @@ export default function InventoryManager() {
           <section className="space-y-4 sm:space-y-6">
             <div className="flex justify-between items-center bg-[#121824] p-4 sm:p-6 rounded-2xl border border-[#1E293B]">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tighter flex items-center gap-3"><Package className="text-[#00D0FF]" /> Inventory Manager</h1>
-                <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage cafe stock, edit names, and re-categorize items freely.</p>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tighter flex items-center gap-3"><Package className="text-[#00D0FF]" /> Inventory & CRM</h1>
+                <p className="text-gray-400 text-xs sm:text-sm mt-1">Manage cafe stock and dynamic system-restricted memberships.</p>
               </div>
             </div>
 
-            <form onSubmit={handleAddItem} className="bg-[#121824] p-4 sm:p-6 rounded-2xl border border-[#1E293B] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-4 items-end">
-              <div className="sm:col-span-2 md:col-span-2">
-                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Item Name</label>
-                <input required placeholder="e.g., Red Bull" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newName} onChange={e => setNewName(e.target.value)} />
+            {/* 🟢 DYNAMIC GRID FORM */}
+            <form onSubmit={handleAddItem} className="bg-[#121824] p-4 sm:p-6 rounded-2xl border border-[#1E293B] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 items-end transition-all">
+              
+              <div className={`sm:col-span-2 ${isMemCatInput ? 'md:col-span-2' : 'md:col-span-3'}`}>
+                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">{isMemCatInput ? 'Gamer Name' : 'Item Name'}</label>
+                <input required placeholder={isMemCatInput ? "e.g., Gladwin" : "e.g., Red Bull"} className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newName} onChange={e => setNewName(e.target.value)} />
               </div>
-              <div className="sm:col-span-1 md:col-span-1">
+              
+              <div className={`sm:col-span-1 ${isMemCatInput ? 'md:col-span-2' : 'md:col-span-3'}`}>
                 <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Category</label>
                 {!isAddingNewCategory ? (
                   <select required className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none appearance-none" value={newCategory} onChange={e => { if(e.target.value === '__NEW__') setIsAddingNewCategory(true); else setNewCategory(e.target.value); }}>
                     <option value="" disabled>Select Category</option>
                     {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    <option value="__NEW__" className="text-[#00D0FF] font-bold">+ Create New</option>
+                    <option value="__NEW__" className="text-[#00D0FF] font-bold">+ Create New F&B</option>
                   </select>
                 ) : (
                   <div className="flex items-center mt-1 bg-[#0B0E14] rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
@@ -207,36 +246,73 @@ export default function InventoryManager() {
                   </div>
                 )}
               </div>
-              <div className="sm:col-span-1 md:col-span-1">
-                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Cost (₹)</label>
-                <input required type="number" placeholder="0" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newCostPrice} onChange={e => setNewCostPrice(e.target.value)} />
-              </div>
-              <div className="sm:col-span-1 md:col-span-1">
-                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Selling (₹)</label>
+
+              {!isMemCatInput && (
+                <div className="sm:col-span-1 md:col-span-2">
+                  <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Cost (₹)</label>
+                  <input required type="number" placeholder="0" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newCostPrice} onChange={e => setNewCostPrice(e.target.value)} />
+                </div>
+              )}
+
+              {isMemCatInput && (
+                <div className="sm:col-span-1 md:col-span-2">
+                  <label className="text-[10px] text-purple-400 font-bold uppercase ml-1">Expiration Date</label>
+                  <input required type="date" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-purple-400 outline-none text-purple-300 [color-scheme:dark]" value={newExpDate} onChange={e => setNewExpDate(e.target.value)} />
+                </div>
+              )}
+
+              <div className={`sm:col-span-1 ${isMemCatInput ? 'md:col-span-2' : 'md:col-span-1'}`}>
+                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">{isMemCatInput ? 'Upfront Paid (₹)' : 'Selling (₹)'}</label>
                 <input required type="number" placeholder="0" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newSellingPrice} onChange={e => setNewSellingPrice(e.target.value)} />
               </div>
+
               <div className="sm:col-span-1 md:col-span-1">
-                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Stock Qty</label>
-                <input type="number" placeholder="Optional" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newStockLevel} onChange={e => setNewStockLevel(e.target.value)} />
+                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">{isMemCatInput ? 'Hours Given' : 'Stock Qty'}</label>
+                <input type="number" step="any" placeholder="Optional" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={newStockLevel} onChange={e => setNewStockLevel(e.target.value)} />
               </div>
-              <button type="submit" className="w-full sm:col-span-2 md:col-span-1 bg-[#00D0FF] text-black p-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-white transition-all"><Plus size={16} /> Add</button>
+
+              {isMemCatInput && (
+                <div className="sm:col-span-1 md:col-span-1">
+                  <label className="text-[10px] text-emerald-400 font-bold uppercase ml-1">Paid Via</label>
+                  <select className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-emerald-400 outline-none text-emerald-400 font-bold" value={newPayMethod} onChange={e => setNewPayMethod(e.target.value)}>
+                     <option>UPI</option><option>Cash</option>
+                  </select>
+                </div>
+              )}
+
+              <button type="submit" className={`w-full sm:col-span-2 md:col-span-2 ${isMemCatInput ? 'bg-purple-500' : 'bg-[#00D0FF]'} text-black p-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-white transition-all`}>
+                 <Plus size={16} /> {isMemCatInput ? 'Sell & Log Income' : 'Add Item'}
+              </button>
             </form>
 
-            <div className="bg-[#121824] rounded-2xl border border-[#1E293B] overflow-hidden flex flex-col h-[500px]">
+            <div className={`bg-[#121824] rounded-2xl border ${isMembershipView ? 'border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'border-[#1E293B]'} overflow-hidden flex flex-col h-[500px] transition-all`}>
               <div className="flex gap-2 p-3 sm:p-4 border-b border-[#1E293B] overflow-x-auto bg-[#0B0E14] custom-scrollbar shrink-0">
-                {categories.map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
-                ))}
+                {categories.map(cat => {
+                  const isCatMem = cat.startsWith('Membership - ');
+                  return (
+                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeCategory === cat ? (isCatMem ? 'bg-purple-500 text-white shadow-md' : 'bg-[#00D0FF] text-black') : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>
+                      {isCatMem && <Users size={12} className="inline mr-1.5 mb-0.5" />}
+                      {cat.replace('Membership - ', '')}
+                    </button>
+                  )
+                })}
               </div>
+              
+              {isMembershipView && (
+                 <div className="bg-purple-900/20 text-purple-300 p-3 text-xs font-bold text-center border-b border-purple-500/20">
+                    🔒 These memberships are exclusively tied to the {activeCategory.replace('Membership - ', '')} systems. 
+                 </div>
+              )}
+
               <div className="overflow-y-auto overflow-x-auto flex-1 p-0 sm:p-4 custom-scrollbar">
                 <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap min-w-[800px]">
                   <thead className="text-[10px] uppercase text-gray-500 font-bold sticky top-0 bg-[#121824] z-10 shadow-sm">
                     <tr>
-                      <th className="p-3 pl-4 sm:pl-2">Item Name</th>
+                      <th className="p-3 pl-4 sm:pl-2">{isMembershipView ? 'Gamer Name | Expiration Date' : 'Item Name'}</th>
                       <th className="p-3">Category Move</th>
-                      <th className="p-3">Purchase (Cost)</th>
-                      <th className="p-3">Selling (Menu)</th>
-                      <th className="p-3 text-right pr-2">Live Stock</th>
+                      <th className="p-3">{isMembershipView ? 'Base Cost' : 'Purchase (Cost)'}</th>
+                      <th className="p-3">{isMembershipView ? 'Upfront Paid (₹)' : 'Selling (Menu)'}</th>
+                      <th className="p-3 text-right pr-2">{isMembershipView ? 'Hours Remaining' : 'Live Stock'}</th>
                       <th className="p-3 text-right pr-4">Action</th>
                     </tr>
                   </thead>
@@ -244,12 +320,10 @@ export default function InventoryManager() {
                     {inventory.filter(item => item.category === activeCategory).map(item => (
                       <tr key={item.id} className="hover:bg-[#1A2235]/50 transition-colors group">
                         
-                        {/* 🟢 EDITABLE ITEM NAME */}
                         <td className="p-3 pl-4 sm:pl-2">
-                           <input type="text" value={item.item_name} onChange={(e) => handleUpdateItem(item.id, 'item_name', e.target.value)} className="bg-transparent w-full outline-none font-bold text-white focus:text-[#00D0FF] transition-colors border-b border-transparent focus:border-[#00D0FF]" />
+                           <input type="text" value={item.item_name} onChange={(e) => handleUpdateItem(item.id, 'item_name', e.target.value)} className={`bg-transparent w-full outline-none font-bold text-white transition-colors border-b border-transparent ${isMembershipView ? 'focus:border-purple-400 focus:text-purple-400' : 'focus:border-[#00D0FF] focus:text-[#00D0FF]'}`} />
                         </td>
 
-                        {/* 🟢 EDITABLE CATEGORY DROPDOWN */}
                         <td className="p-3">
                            <select value={item.category} onChange={(e) => handleUpdateItem(item.id, 'category', e.target.value)} className="bg-transparent w-full outline-none text-gray-400 focus:text-white appearance-none cursor-pointer hover:text-white">
                               {categories.map(cat => <option key={cat} value={cat} className="bg-[#121824]">{cat}</option>)}
@@ -265,17 +339,25 @@ export default function InventoryManager() {
                         
                         <td className="p-3">
                            <div className="flex items-center gap-1">
-                              <span className="text-[#00D0FF]/50 font-bold">₹</span>
-                              <input type="number" value={item.selling_price} onChange={(e) => handleUpdateItem(item.id, 'selling_price', e.target.value)} className="bg-transparent w-16 outline-none font-bold text-[#00D0FF]" />
+                              <span className={`${isMembershipView ? 'text-purple-500/50' : 'text-[#00D0FF]/50'} font-bold`}>₹</span>
+                              <input type="number" value={item.selling_price} onChange={(e) => handleUpdateItem(item.id, 'selling_price', e.target.value)} className={`bg-transparent w-16 outline-none font-bold ${isMembershipView ? 'text-purple-400' : 'text-[#00D0FF]'}`} />
                            </div>
                         </td>
 
                         <td className="p-3 text-right pr-2">
                           {item.stock_level !== null ? (
                             <div className="flex items-center justify-end gap-1.5 sm:gap-2">
-                              <button onClick={() => handleStockAdjust(item.id, -1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748] hover:bg-white hover:text-black transition-all"><Minus size={12}/></button>
-                              <span className="font-bold w-8 text-center">{item.stock_level}</span>
-                              <button onClick={() => handleStockAdjust(item.id, 1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748] hover:bg-white hover:text-black transition-all"><Plus size={12}/></button>
+                              <button onClick={() => handleStockAdjust(item.id, isMembershipView ? -0.5 : -1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748] hover:bg-white hover:text-black transition-all"><Minus size={12}/></button>
+                              
+                              <input 
+                                 type="number" 
+                                 step={isMembershipView ? "0.5" : "1"} 
+                                 className={`bg-transparent w-14 text-center outline-none font-black transition-colors border-b border-transparent ${isMembershipView ? 'text-purple-300 focus:border-purple-400' : 'text-white focus:border-[#00D0FF]'}`}
+                                 value={item.stock_level} 
+                                 onChange={(e) => handleUpdateItem(item.id, 'stock_level', e.target.value)} 
+                              />
+                              
+                              <button onClick={() => handleStockAdjust(item.id, isMembershipView ? 0.5 : 1, item.stock_level)} className="p-1 sm:p-1.5 bg-[#1A2235] rounded-lg border border-[#2D3748] hover:bg-white hover:text-black transition-all"><Plus size={12}/></button>
                             </div>
                           ) : <span className="text-gray-600 text-[10px] sm:text-xs italic">N/A</span>}
                         </td>
@@ -283,7 +365,7 @@ export default function InventoryManager() {
                       </tr>
                     ))}
                     {inventory.filter(item => item.category === activeCategory).length === 0 && (
-                        <tr><td colSpan={6} className="p-8 text-center text-gray-500 italic">No items in this category.</td></tr>
+                        <tr><td colSpan={6} className="p-8 text-center text-gray-500 italic">No {isMembershipView ? 'memberships' : 'items'} in this category.</td></tr>
                     )}
                   </tbody>
                 </table>

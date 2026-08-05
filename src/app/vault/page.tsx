@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Monitor, Package, BarChart3, Lock, CheckCircle2, Copy, X, Wallet, Building2, Pencil, Check, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Monitor, Package, BarChart3, Lock, CheckCircle2, Copy, X, Wallet, Building2, Pencil, Check, Calendar, Gamepad2, Users, Clock, IndianRupee, MessageCircle, ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 
 function formatINR(num: number) { return Math.round(num || 0).toLocaleString('en-IN'); }
 
@@ -14,6 +14,14 @@ function extractNumber(val: any): number {
   return cleaned ? parseFloat(cleaned) : 0;
 }
 
+// Helper to avoid timezone drift
+const toLocalISOString = (date: Date) => {
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+};
+
 export default function MasterVault() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -23,6 +31,7 @@ export default function MasterVault() {
   const [cafeData, setCafeData] = useState<any[]>([]);
   const [ledgerData, setLedgerData] = useState<any[]>([]);
   const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+  const [inventoryData, setInventoryData] = useState<any[]>([]);
   
   // Filter States
   const [timeFilter, setTimeFilter] = useState('Lifetime');
@@ -85,6 +94,7 @@ export default function MasterVault() {
     const sales = await fetchAllRows('sales');
     const cafe = await fetchAllRows('cafe_orders');
     const expenses = await fetchAllRows('expenses');
+    const inv = await fetchAllRows('inventory');
     
     const { data: ledger } = await supabase.from('daily_ledger').select('*').order('date', { ascending: false });
     
@@ -92,6 +102,7 @@ export default function MasterVault() {
     if (cafe) setCafeData(cafe);
     if (expenses) setRawExpenses(expenses);
     if (ledger) setLedgerData(ledger);
+    if (inv) setInventoryData(inv);
     
     setIsDataLoading(false);
   }
@@ -99,15 +110,40 @@ export default function MasterVault() {
   const saveBankBalance = (newVal: number) => { setBankBalance(newVal); localStorage.setItem('gamerarena_bank', newVal.toString()); };
   const saveCashAtHome = (newVal: number) => { setCashAtHome(newVal); localStorage.setItem('gamerarena_cash', newVal.toString()); };
 
-  // --- CALENDAR & DATE FILTERING ENGINE (STRICT MON-SUN) ---
-  const filterByDate = (items: any[]) => {
-    const now = new Date();
-    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-    
-    const yesterdayDate = new Date(now);
-    yesterdayDate.setDate(now.getDate() - 1);
-    const yesterdayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(yesterdayDate);
+  // 🟢 STRICT CALENDAR DATE ENGINE (Mon-Sun, 1st-End)
+  const now = new Date();
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+  const [year, month, day] = todayStr.split('-').map(Number);
+  const localToday = new Date(year, month - 1, day);
 
+  const dayOfWeek = localToday.getDay(); 
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  const thisMonday = new Date(localToday);
+  thisMonday.setDate(localToday.getDate() - daysSinceMonday);
+  const thisMondayStr = toLocalISOString(thisMonday);
+
+  const thisSunday = new Date(thisMonday);
+  thisSunday.setDate(thisMonday.getDate() + 6);
+  const thisSundayStr = toLocalISOString(thisSunday);
+
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setDate(thisMonday.getDate() - 7);
+  const lastMondayStr = toLocalISOString(lastMonday);
+
+  const lastSunday = new Date(lastMonday);
+  lastSunday.setDate(lastMonday.getDate() + 6);
+  const lastSundayStr = toLocalISOString(lastSunday);
+
+  const thisMonthPrefix = todayStr.substring(0, 7);
+  const lastMonthDate = new Date(year, month - 2, 1);
+  const lastMonthPrefix = toLocalISOString(lastMonthDate).substring(0, 7);
+
+  const yesterdayDate = new Date(localToday);
+  yesterdayDate.setDate(localToday.getDate() - 1);
+  const yesterdayStr = toLocalISOString(yesterdayDate);
+
+  const filterByDate = (items: any[]) => {
     return items.filter(item => {
       const rawDate = item.created_at || item.date;
       if (!rawDate) return false;
@@ -126,35 +162,10 @@ export default function MasterVault() {
       switch (timeFilter) {
         case 'Today': return itemDateStr === todayStr;
         case 'Yesterday': return itemDateStr === yesterdayStr;
-        case 'This Week': {
-          const d = new Date(now);
-          const day = d.getDay();
-          const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-          const monday = new Date(d.setDate(diff));
-          const mondayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(monday);
-          return itemDateStr >= mondayStr && itemDateStr <= todayStr;
-        }
-        case 'Last Week': {
-          const d = new Date(now);
-          const day = d.getDay();
-          const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-          const thisMonday = new Date(d.setDate(diff));
-          
-          const lastMonday = new Date(thisMonday);
-          lastMonday.setDate(lastMonday.getDate() - 7);
-          const lastSunday = new Date(thisMonday);
-          lastSunday.setDate(lastSunday.getDate() - 1);
-          
-          const lastMonStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(lastMonday);
-          const lastSunStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(lastSunday);
-          
-          return itemDateStr >= lastMonStr && itemDateStr <= lastSunStr;
-        }
-        case 'This Month': return itemDateStr.startsWith(todayStr.substring(0, 7));
-        case 'Last Month': 
-          const lastMonth = new Date(now); lastMonth.setMonth(now.getMonth() - 1);
-          const lastMonthStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(lastMonth);
-          return itemDateStr.startsWith(lastMonthStr.substring(0, 7));
+        case 'This Week': return itemDateStr >= thisMondayStr && itemDateStr <= thisSundayStr;
+        case 'Last Week': return itemDateStr >= lastMondayStr && itemDateStr <= lastSundayStr;
+        case 'This Month': return itemDateStr.startsWith(thisMonthPrefix);
+        case 'Last Month': return itemDateStr.startsWith(lastMonthPrefix);
         case 'Lifetime': return true;
         case 'Custom Dates': return true;
         default: return true;
@@ -203,7 +214,13 @@ export default function MasterVault() {
        else if (sysName.includes('SIM')) simRev += gameCost;
        else ps5Rev += gameCost;
 
-       const m = String(s.method || '').trim();
+       let mRaw = String(s.method || '').trim();
+       let m = mRaw;
+       if (mRaw.startsWith('Member[')) {
+           const parts = mRaw.split('|');
+           m = parts.length > 1 ? parts[1].trim() : 'Cash';
+       }
+
        if (m.startsWith('Split|')) { 
            const parts = m.split('|'); 
            eodCash += Number(parts[1] || 0); 
@@ -284,7 +301,10 @@ export default function MasterVault() {
   const filteredSales = filterByDate(salesData);
   const filteredCafe = filterByDate(cafeData);
 
-  let gamingRev = 0, fnbRev = 0, fnbProfit = 0, pcRev = 0, ps5Rev = 0, simRev = 0;
+  let gamingRev = 0, fnbRev = 0, fnbProfit = 0, miscRev = 0;
+  let pcRev = 0, ps5Rev = 0, simRev = 0;
+  
+  let memPS5Rev = 0, memPCRev = 0, memSimRev = 0, totalMemRev = 0;
   
   filteredSales.forEach(s => {
     const rawDateStr = s.date ? String(s.date).trim() : (s.created_at ? String(s.created_at).split('T')[0] : '');
@@ -315,23 +335,32 @@ export default function MasterVault() {
     const cost = extractNumber(c.total_cost || 0);
     const prof = extractNumber(c.profit || 0) || (rev - cost);
     
-    const isRetail = String(c.items || '').includes('[Retail]');
+    const itemsStr = String(c.items || '');
+    const isRetail = itemsStr.includes('[Retail]');
     
-    // Aggregate profit from ALL F&B orders (Walk-in + Tabs)
     if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
        fnbProfit += prof;
     }
 
-    // Aggregate pure revenue ONLY from Walk-ins (Tabs are aggregated via sales loop)
     const method = String(c.method || c.payment_method || '').trim().toLowerCase();
     if (method !== 'tab') {
-       if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
+       if (isRetail || c.category === 'Retail' || c.category === 'Merch') {
+          miscRev += rev;
+          
+          if (itemsStr.includes('PS5 Membership')) { memPS5Rev += rev; totalMemRev += rev; }
+          else if (itemsStr.includes('PC Membership')) { memPCRev += rev; totalMemRev += rev; }
+          else if (itemsStr.includes('Racing Sim Membership')) { memSimRev += rev; totalMemRev += rev; }
+       } else {
           fnbRev += rev;
        }
     }
   });
 
-  const totalRev = gamingRev + fnbRev;
+  pcRev += memPCRev;
+  ps5Rev += memPS5Rev;
+  simRev += memSimRev;
+
+  const totalRev = gamingRev + fnbRev + miscRev;
   const pcPct = totalRev > 0 ? (pcRev / totalRev) * 100 : 0;
   const ps5Pct = totalRev > 0 ? (ps5Rev / totalRev) * 100 : 0;
   const simPct = totalRev > 0 ? (simRev / totalRev) * 100 : 0;
@@ -364,12 +393,79 @@ export default function MasterVault() {
     .slice(0, 20);
 
   // -------------------------------------------------------------
-  // MASTER DAILY REPORT EXCEL ENGINE (All-Time) - DATE BUG FIXED
+  // MASTER MONTH-OVER-MONTH ENGINE (Strict Calendar Month)
+  // -------------------------------------------------------------
+  const monthsMap: Record<string, any> = {};
+
+  const getMonthStr = (dbDate: any, createdAt: any) => {
+    let d = dbDate ? String(dbDate).trim() : (createdAt ? String(createdAt).split('T')[0] : '');
+    if (!d) return 'Unknown';
+    if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 7);
+    try { const dateObj = new Date(d); if (!isNaN(dateObj.getTime())) return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`; } catch (e) {}
+    return d.substring(0, 7); 
+  };
+
+  const initMoMMonth = (m: string) => {
+    if (!monthsMap[m]) monthsMap[m] = { month: m, rev: 0, exp: 0, profit: 0 };
+  };
+
+  salesData.forEach(s => {
+     if (s.status === 'Active' || s.status === 'Reserved' || s.status === 'Hold' || s.status === 'Pending') return;
+     const m = getMonthStr(s.date, s.created_at);
+     if (m === 'Unknown') return;
+     initMoMMonth(m);
+
+     const rawDateStr = s.date ? String(s.date).trim() : (s.created_at ? String(s.created_at).split('T')[0] : '');
+     const isLegacyData = rawDateStr < '2026-07-18';
+     const rawTotal = extractNumber(s.total || s.amount || s.total_amount || 0);
+     const fnbAmt = extractNumber(s.fnb_total || 0);
+     const grandTotal = isLegacyData ? rawTotal : rawTotal + fnbAmt;
+     
+     monthsMap[m].rev += grandTotal;
+  });
+
+  cafeData.forEach(c => {
+     const method = String(c.method || c.payment_method || '').trim().toLowerCase();
+     if (method !== 'tab') {
+         const m = getMonthStr(c.date, c.created_at);
+         if (m === 'Unknown') return;
+         initMoMMonth(m);
+         monthsMap[m].rev += extractNumber(c.total_revenue || c.total || c.amount || 0);
+     }
+  });
+
+  rawExpenses.forEach(e => {
+     const m = getMonthStr(e.expense_date, e.created_at);
+     if (m === 'Unknown') return;
+     initMoMMonth(m);
+     
+     if (e.status === 'Paid' && !['Bank Deposit', 'Capital / Opening Balance'].includes(e.category)) {
+         monthsMap[m].exp += extractNumber(e.amount);
+     }
+  });
+
+  const momArray = Object.values(monthsMap).sort((a: any, b: any) => a.month.localeCompare(b.month));
+  
+  for (let i = 0; i < momArray.length; i++) {
+     momArray[i].profit = momArray[i].rev - momArray[i].exp;
+     if (i === 0) {
+         momArray[i].growth = 0;
+     } else {
+         const prevRev = momArray[i - 1].rev;
+         if (prevRev === 0) momArray[i].growth = (momArray[i].rev > 0 ? 100 : 0);
+         else momArray[i].growth = ((momArray[i].rev - prevRev) / prevRev) * 100;
+     }
+  }
+
+  const displayMoM = momArray.reverse(); 
+
+  // -------------------------------------------------------------
+  // MASTER DAILY REPORT EXCEL ENGINE 
   // -------------------------------------------------------------
   const masterDailyMap: Record<string, any> = {};
 
   const initMasterDay = (d: string) => {
-     if (!masterDailyMap[d]) masterDailyMap[d] = { date: d, total: 0, cash: 0, upi: 0, fnbRev: 0, fnbProfit: 0, expenses: 0 };
+     if (!masterDailyMap[d]) masterDailyMap[d] = { date: d, total: 0, cash: 0, upi: 0, fnbRev: 0, fnbProfit: 0, miscRev: 0, expenses: 0 };
   };
 
   const getStrictDayStr = (primaryDate: any, backupDate: any) => {
@@ -377,6 +473,9 @@ export default function MasterVault() {
      if (!val) return 'Unknown';
      return val.split('T')[0].split(' ')[0]; 
   };
+
+  let currentWeekRev = 0;
+  let prevWeekRev = 0;
 
   salesData.forEach(s => {
      if (s.status === 'Active' || s.status === 'Reserved' || s.status === 'Hold' || s.status === 'Pending') return;
@@ -393,7 +492,13 @@ export default function MasterVault() {
      masterDailyMap[d].total += grandTotal;
      masterDailyMap[d].fnbRev += fnbAmt;
 
-     const m = String(s.method || '').trim();
+     let mRaw = String(s.method || '').trim();
+     let m = mRaw;
+     if (mRaw.startsWith('Member[')) {
+         const parts = mRaw.split('|');
+         m = parts.length > 1 ? parts[1].trim() : 'Cash';
+     }
+
      if (m.startsWith('Split|')) {
         const parts = m.split('|');
         masterDailyMap[d].cash += Number(parts[1] || 0);
@@ -422,8 +527,10 @@ export default function MasterVault() {
      }
 
      if (method !== 'tab') {
-         if (!isRetail && c.category !== 'Retail' && c.category !== 'Merch') {
-            masterDailyMap[d].fnbRev += rev;
+         if (isRetail || c.category === 'Retail' || c.category === 'Merch') {
+             masterDailyMap[d].miscRev += rev;
+         } else {
+             masterDailyMap[d].fnbRev += rev;
          }
          masterDailyMap[d].total += rev;
 
@@ -453,6 +560,21 @@ export default function MasterVault() {
   const masterDailyArray = Object.values(masterDailyMap);
   masterDailyArray.sort((a, b) => dailyReportSortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
+  // 🟢 CALCULATE WoW GROWTH (Strict Mon-Sun)
+  masterDailyArray.forEach(row => {
+     if (row.date >= thisMondayStr && row.date <= thisSundayStr) {
+         currentWeekRev += row.total;
+     } else if (row.date >= lastMondayStr && row.date <= lastSundayStr) {
+         prevWeekRev += row.total;
+     }
+  });
+  const wowGrowth = prevWeekRev === 0 ? (currentWeekRev > 0 ? 100 : 0) : ((currentWeekRev - prevWeekRev) / prevWeekRev) * 100;
+
+  const currMonthData = displayMoM[0] || { rev: 0, profit: 0, exp: 0, month: 'N/A' };
+  const prevMonthData = displayMoM[1] || { rev: 0, profit: 0, exp: 0, month: 'N/A' };
+  const momRevGrowth = prevMonthData.rev === 0 ? (currMonthData.rev > 0 ? 100 : 0) : ((currMonthData.rev - prevMonthData.rev) / prevMonthData.rev) * 100;
+  
+  const maxGraphVal = Math.max(...displayMoM.slice(0, 12).map((m: any) => Math.max(m.rev, m.profit))) || 1;
 
   const markUPISettled = async (row: any) => {
     if (isDataLoading) return; setIsDataLoading(true);
@@ -468,10 +590,16 @@ export default function MasterVault() {
     setIsDataLoading(false);
   };
 
-  const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-  const displayLedger = ledgerData.filter(row => row.date >= todayDateString);
+  const displayLedger = ledgerData.filter(row => row.date >= todayStr);
 
-  // 🟢 SECURE LOGIN FUNCTION - Cryptographic Hash for Vault Access (Surya@221092)
+  // MEMBERSHIP STATS CALCULATOR
+  let totalMemPS5 = 0; let totalMemPC = 0; let totalMemSim = 0;
+  inventoryData.forEach(i => {
+     if (i.category === 'Membership - PS5') totalMemPS5 += Number(i.stock_level || 0);
+     if (i.category === 'Membership - PC') totalMemPC += Number(i.stock_level || 0);
+     if (i.category === 'Membership - Racing Sim') totalMemSim += Number(i.stock_level || 0);
+  });
+
   const handleLogin = async (e: any) => {
     e.preventDefault();
     try {
@@ -480,7 +608,6 @@ export default function MasterVault() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      // Checking the mathematical hash for the Vault PIN
       if (hashHex === '5649e4c3a5806740cc07eb9b5ef38e547122ef70ad2014b64ddc8ebd2539c4b0') {
         setIsAuthenticated(true);
       } else {
@@ -551,8 +678,8 @@ export default function MasterVault() {
             </div>
           </div>
 
-          {/* TOP ROW: BALANCES */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          {/* 🟢 TOP ROW: BALANCES & MEMBERSHIP LIABILITIES */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
              <div className="bg-[#121824] border border-[#1E293B] rounded-3xl p-5 sm:p-6 relative overflow-hidden group hover:border-orange-500/50 transition-all">
                 <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Building2 size={80}/></div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Building2 size={14}/> Bank Balance</h3>
@@ -586,10 +713,35 @@ export default function MasterVault() {
                   </div>
                 )}
              </div>
+
+             <div className="bg-purple-900/10 border border-purple-500/30 rounded-3xl p-5 sm:p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-5 text-purple-400"><Users size={80}/></div>
+                <h3 className="text-[10px] sm:text-xs font-black text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Users size={14}/> Active Memberships</h3>
+                <div className="flex items-end gap-3 mt-2 z-10 relative">
+                   <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">{totalMemPS5 + totalMemPC + totalMemSim} <span className="text-lg text-purple-400">Hrs</span></span>
+                </div>
+                <div className="flex gap-4 mt-3 pt-3 border-t border-purple-500/20 text-[10px] font-bold text-gray-300">
+                   <p>PS5: <span className="text-purple-400">{totalMemPS5}</span></p>
+                   <p>PC: <span className="text-purple-400">{totalMemPC}</span></p>
+                   <p>Sim: <span className="text-purple-400">{totalMemSim}</span></p>
+                </div>
+             </div>
+
+             <div className="bg-purple-900/10 border border-purple-500/30 rounded-3xl p-5 sm:p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-5 text-purple-400"><IndianRupee size={80}/></div>
+                <h3 className="text-[10px] sm:text-xs font-black text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-2"><IndianRupee size={14}/> Membership Income</h3>
+                <div className="flex items-end gap-3 mt-2 z-10 relative">
+                   <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">₹{formatINR(totalMemRev)}</span>
+                </div>
+                <div className="flex gap-4 mt-3 pt-3 border-t border-purple-500/20 text-[10px] font-bold text-gray-300">
+                   <p>PS5: <span className="text-purple-400">₹{formatINR(memPS5Rev)}</span></p>
+                   <p>PC: <span className="text-purple-400">₹{formatINR(memPCRev)}</span></p>
+                   <p>Sim: <span className="text-purple-400">₹{formatINR(memSimRev)}</span></p>
+                </div>
+             </div>
           </div>
 
-          {/* 🟢 5-COLUMN DYNAMIC KPI STRIP */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
              <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Revenue</p>
                <p className="text-lg sm:text-xl font-black text-white">₹{formatINR(totalRev)}</p>
@@ -597,6 +749,10 @@ export default function MasterVault() {
              <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Pure Gaming</p>
                <p className="text-lg sm:text-xl font-black text-[#00D0FF]">₹{formatINR(gamingRev)}</p>
+             </div>
+             <div className="bg-[#0B0E14] border border-purple-500/30 p-4 sm:p-5 rounded-2xl">
+               <p className="text-[9px] sm:text-[10px] text-purple-400 font-bold uppercase tracking-widest mb-1">Memberships/Misc</p>
+               <p className="text-lg sm:text-xl font-black text-purple-400">₹{formatINR(miscRev)}</p>
              </div>
              <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">F&B Revenue</p>
@@ -606,9 +762,9 @@ export default function MasterVault() {
                <p className="text-[9px] sm:text-[10px] text-orange-500 font-bold uppercase tracking-widest mb-1">F&B Profit</p>
                <p className="text-lg sm:text-xl font-black text-orange-400">₹{formatINR(fnbProfit)}</p>
              </div>
-             <div className="col-span-2 lg:col-span-1 bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl flex flex-col justify-center">
+             <div className="bg-[#0B0E14] border border-[#1E293B] p-4 sm:p-5 rounded-2xl flex flex-col justify-center">
                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Sessions</p>
-               <p className="text-lg sm:text-xl font-black text-purple-400">{filteredSales.length}</p>
+               <p className="text-lg sm:text-xl font-black text-white">{filteredSales.length}</p>
              </div>
           </div>
 
@@ -785,7 +941,7 @@ export default function MasterVault() {
 
              <div className="bg-[#121824] rounded-xl border border-[#2D3748] overflow-hidden shadow-2xl flex flex-col">
                <div className="overflow-x-auto custom-scrollbar flex-1 max-h-[500px]">
-                 <div className="min-w-[800px]">
+                 <div className="min-w-[900px]">
                    <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap border-collapse">
                       <thead className="bg-yellow-400 text-black font-black tracking-wider sticky top-0 z-20">
                          <tr>
@@ -794,6 +950,7 @@ export default function MasterVault() {
                            <th className="p-3 border border-yellow-500">Cash</th>
                            <th className="p-3 border border-yellow-500">Upi</th>
                            <th className="p-3 border border-yellow-500">F&B Revenue</th>
+                           <th className="p-3 border border-yellow-500">Misc / Memberships</th>
                            <th className="p-3 border border-yellow-500">F&B profit</th>
                            <th className="p-3 border border-yellow-500">Expenses</th>
                          </tr>
@@ -806,12 +963,13 @@ export default function MasterVault() {
                               <td className="p-3 border border-[#2D3748] font-bold">₹{formatINR(row.cash)}</td>
                               <td className="p-3 border border-[#2D3748] font-bold">₹{formatINR(row.upi)}</td>
                               <td className="p-3 border border-[#2D3748] text-gray-400">₹{formatINR(row.fnbRev)}</td>
+                              <td className="p-3 border border-[#2D3748] text-purple-400 font-bold">₹{formatINR(row.miscRev)}</td>
                               <td className="p-3 border border-[#2D3748] font-black text-orange-400">₹{formatINR(row.fnbProfit)}</td>
                               <td className="p-3 border border-[#2D3748] font-bold text-red-400">₹{formatINR(row.expenses)}</td>
                             </tr>
                          ))}
                          {masterDailyArray.length === 0 && (
-                            <tr><td colSpan={7} className="p-6 text-center text-gray-500 italic">No historical data available.</td></tr>
+                            <tr><td colSpan={8} className="p-6 text-center text-gray-500 italic">No historical data available.</td></tr>
                          )}
                       </tbody>
                    </table>
@@ -819,6 +977,132 @@ export default function MasterVault() {
                </div>
              </div>
           </div>
+
+          {/* 🟢 ADVANCED FINANCIAL ANALYTICS (GRAPH + MoM + WoW) */}
+          <div className="mt-8 sm:mt-12 mb-12 bg-[#121824] rounded-3xl border border-[#1E293B] overflow-hidden shadow-2xl">
+              <div className="p-5 sm:p-6 border-b border-[#1E293B] flex justify-between items-center bg-[#0B0E14]">
+                  <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-2 sm:gap-3"><BarChart2 className="text-[#00D0FF]" size={20}/> Performance & Growth Analytics</h3>
+              </div>
+              
+              <div className="p-5 sm:p-8">
+                  {/* Top KPI row for Growth */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                      <div className="bg-[#0B0E14] border border-[#2D3748] rounded-2xl p-5 relative overflow-hidden group hover:border-[#00D0FF]/50 transition-colors">
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">This Week's Revenue</p>
+                          <div className="flex items-end gap-3">
+                              <p className="text-2xl font-black text-white">₹{formatINR(currentWeekRev)}</p>
+                              <span className={`text-xs font-black flex items-center mb-1 ${wowGrowth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {wowGrowth >= 0 ? <TrendingUp size={14} className="mr-1"/> : <TrendingDown size={14} className="mr-1"/>}
+                                  {wowGrowth > 0 ? '+' : ''}{wowGrowth.toFixed(1)}% WoW
+                              </span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-2">Mon-Sun vs last week (₹{formatINR(prevWeekRev)})</p>
+                      </div>
+
+                      <div className="bg-[#0B0E14] border border-[#2D3748] rounded-2xl p-5 relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Current Month Revenue</p>
+                          <div className="flex items-end gap-3">
+                              <p className="text-2xl font-black text-[#00D0FF]">₹{formatINR(currMonthData.rev)}</p>
+                              <span className={`text-xs font-black flex items-center mb-1 ${momRevGrowth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {momRevGrowth >= 0 ? <TrendingUp size={14} className="mr-1"/> : <TrendingDown size={14} className="mr-1"/>}
+                                  {momRevGrowth > 0 ? '+' : ''}{momRevGrowth.toFixed(1)}% MoM
+                              </span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-2">Vs {prevMonthData.month} (₹{formatINR(prevMonthData.rev)})</p>
+                      </div>
+
+                      <div className="bg-[#0B0E14] border border-[#2D3748] rounded-2xl p-5 relative overflow-hidden group hover:border-orange-500/50 transition-colors">
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Current Month Profit</p>
+                          <div className="flex items-end gap-3">
+                              <p className="text-2xl font-black text-orange-400">₹{formatINR(currMonthData.profit)}</p>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-2">After all logged expenses (₹{formatINR(currMonthData.exp)})</p>
+                      </div>
+                  </div>
+
+                  {/* The Interactive CSS Graph */}
+                  <div className="mb-8">
+                      <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Revenue vs Profit (Last 12 Months)</h4>
+                      
+                      <div className="h-48 sm:h-64 flex items-end gap-2 sm:gap-4 border-b border-[#2D3748] pb-1 relative">
+                         {displayMoM.slice(0, 12).reverse().map((m: any) => {
+                            const revPct = maxGraphVal > 0 ? (m.rev / maxGraphVal) * 100 : 0;
+                            const profPct = maxGraphVal > 0 ? (Math.max(0, m.profit) / maxGraphVal) * 100 : 0;
+                            return (
+                              <div key={m.month} className="flex-1 flex flex-col justify-end items-center h-full group relative">
+                                 {/* Hover Tooltip */}
+                                 <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute bottom-full mb-2 bg-[#1A2235] border border-[#2D3748] p-2 sm:p-3 rounded-lg text-xs whitespace-nowrap z-20 shadow-2xl transition-all">
+                                    <p className="font-black text-white mb-1 border-b border-[#2D3748] pb-1">{m.month}</p>
+                                    <p className="text-[#00D0FF] font-bold flex justify-between gap-4"><span>Gross Rev:</span> <span>₹{formatINR(m.rev)}</span></p>
+                                    <p className="text-orange-400 font-bold flex justify-between gap-4"><span>Net Profit:</span> <span>₹{formatINR(m.profit)}</span></p>
+                                 </div>
+                                 
+                                 {/* The Bars */}
+                                 <div className="w-full flex justify-center items-end gap-0.5 sm:gap-1 h-full">
+                                     <div className="w-1/2 max-w-[24px] bg-[#00D0FF] rounded-t-sm hover:bg-white transition-colors relative" style={{ height: `${revPct}%`, minHeight: '4px' }}></div>
+                                     <div className="w-1/2 max-w-[24px] bg-orange-500 rounded-t-sm hover:bg-white transition-colors relative" style={{ height: `${profPct}%`, minHeight: '4px' }}></div>
+                                 </div>
+                              </div>
+                            )
+                         })}
+                      </div>
+                      
+                      {/* X-Axis Labels */}
+                      <div className="flex gap-2 sm:gap-4 mt-2">
+                         {displayMoM.slice(0, 12).reverse().map((m: any) => (
+                            <div key={m.month} className="flex-1 text-center">
+                               <span className="text-[8px] sm:text-[10px] font-bold text-gray-500 block truncate">{m.month.split('-')[1]}/{m.month.split('-')[0].slice(2)}</span>
+                            </div>
+                         ))}
+                      </div>
+                      
+                      {/* Legend */}
+                      <div className="flex justify-center gap-6 mt-6">
+                         <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#00D0FF] rounded-sm"></div><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Gross Revenue</span></div>
+                         <div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-500 rounded-sm"></div><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Net Profit</span></div>
+                      </div>
+                  </div>
+
+                  {/* The Detailed Table */}
+                  <div className="overflow-x-auto custom-scrollbar bg-[#0B0E14] rounded-2xl border border-[#1E293B]">
+                     <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap min-w-[800px]">
+                        <thead className="bg-[#1A2235] text-[9px] sm:text-[10px] uppercase text-gray-400 font-black tracking-wider">
+                          <tr>
+                            <th className="p-3 sm:p-4 border-r border-[#2D3748]">Month / Year</th>
+                            <th className="p-3 sm:p-4 text-[#00D0FF]">Total Revenue</th>
+                            <th className="p-3 sm:p-4 text-red-400 border-x border-[#2D3748]">Total Expenses</th>
+                            <th className="p-3 sm:p-4 text-white">Net Profit</th>
+                            <th className="p-3 sm:p-4 text-right">Growth (Rev %)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1E293B]">
+                          {displayMoM.length === 0 ? (
+                            <tr><td colSpan={5} className="p-6 sm:p-8 text-center text-gray-500">No monthly data found.</td></tr>
+                          ) : (
+                            displayMoM.map((row: any, i: number) => (
+                              <tr key={i} className="hover:bg-[#1A2235]/50 transition-colors">
+                                <td className="p-3 sm:p-4 font-bold border-r border-[#2D3748]">{row.month}</td>
+                                <td className="p-3 sm:p-4 font-bold text-[#00D0FF]">₹{formatINR(row.rev)}</td>
+                                <td className="p-3 sm:p-4 text-red-400 border-x border-[#2D3748]">₹{formatINR(row.exp)}</td>
+                                <td className="p-3 sm:p-4 font-black text-orange-400 text-base">₹{formatINR(row.profit)}</td>
+                                <td className="p-3 sm:p-4 text-right">
+                                  {row.growth === 0 ? (
+                                      <span className="text-gray-500 font-bold">-</span>
+                                  ) : row.growth > 0 ? (
+                                      <span className="text-emerald-400 font-black flex items-center justify-end gap-1"><TrendingUp size={14}/> +{row.growth.toFixed(1)}%</span>
+                                  ) : (
+                                      <span className="text-red-400 font-black flex items-center justify-end gap-1"><TrendingDown size={14}/> {row.growth.toFixed(1)}%</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+
         </div>
       </div>
 
