@@ -94,6 +94,10 @@ export default function GamerarenaMasterERP() {
   const [time, setTime] = useState('');
   const [isBookingMode, setIsBookingMode] = useState(false);
   
+  const [payMethod, setPayMethod] = useState('Cash');
+  const [splitCash, setSplitCash] = useState(0);
+  
+  const [useKhata, setUseKhata] = useState(false);
   const [checkoutCash, setCheckoutCash] = useState<number | string>('');
   const [checkoutUPI, setCheckoutUPI] = useState<number | string>('');
   
@@ -260,13 +264,23 @@ export default function GamerarenaMasterERP() {
     if (isProcessing) return; setIsProcessing(true);
     
     const finalTotal = Number(manualTotal);
-    const cashReceived = Number(checkoutCash);
-    const upiReceived = Number(checkoutUPI);
-    const totalPaid = cashReceived + upiReceived;
-    const newDueAmount = finalTotal - totalPaid;
+    
+    let remCash = 0;
+    let remUPI = 0;
+    let newDueAmount = 0;
 
-    let remCash = cashReceived;
-    let remUPI = upiReceived;
+    if (useKhata) {
+        const cashReceived = Number(checkoutCash);
+        const upiReceived = Number(checkoutUPI);
+        const totalPaid = cashReceived + upiReceived;
+        newDueAmount = finalTotal - totalPaid;
+        remCash = cashReceived;
+        remUPI = upiReceived;
+    } else {
+        remCash = payMethod === 'Split Payment' ? splitCash : (payMethod === 'Cash' ? finalTotal : 0);
+        remUPI = payMethod === 'Split Payment' ? (finalTotal - splitCash) : (payMethod === 'UPI' ? finalTotal : 0);
+        newDueAmount = 0; 
+    }
     
     const sessionsToClose = [...getHoldSessions(modal.session.id), modal.session];
     const totalHoursPlayed = sessionsToClose.reduce((sum, s) => sum + Number(s.duration), 0);
@@ -276,7 +290,14 @@ export default function GamerarenaMasterERP() {
         const memberItem = cafeMenu.find(m => String(m.id) === selectedMemberId);
         if (memberItem) {
             selectedMemberName = memberItem.name.split('|')[0].trim();
-            const newStock = Math.max(0, Number(memberItem.stock || 0) - totalHoursPlayed);
+            
+            let currentStock = Number(memberItem.stock || 0);
+            const { data: freshItem } = await supabase.from('inventory').select('stock_level').eq('id', memberItem.id).single();
+            if (freshItem && freshItem.stock_level !== undefined && freshItem.stock_level !== null) {
+                currentStock = Number(freshItem.stock_level);
+            }
+            
+            const newStock = Math.max(0, Math.round((currentStock - totalHoursPlayed) * 100) / 100);
             await supabase.from('inventory').update({ stock_level: newStock }).eq('id', memberItem.id);
         }
     }
@@ -307,11 +328,17 @@ export default function GamerarenaMasterERP() {
       let thisUPI = Math.min(sExpectedTotal - thisCash, remUPI);
       remUPI -= thisUPI;
       
-      let thisDue = sExpectedTotal - thisCash - thisUPI;
+      let sMethodStr = '';
+      if (useKhata && newDueAmount > 0) {
+         sMethodStr = `Split|${thisCash}|${thisUPI}`;
+      } else {
+         if (thisCash > 0 && thisUPI > 0) sMethodStr = `Split|${thisCash}|${thisUPI}`;
+         else if (thisUPI > 0 && thisCash === 0) sMethodStr = 'UPI';
+         else sMethodStr = 'Cash';
+      }
 
-      let sMethodStr = `Paid|Cash:${thisCash}|UPI:${thisUPI}|Due:${thisDue}`;
       if (useMembership && selectedMemberName) {
-         sMethodStr += `|Member[${selectedMemberName}]`;
+         sMethodStr = `Member[${selectedMemberName}] | ${sMethodStr}`;
       }
 
       await supabase.from('sales').update({ status: 'Completed', method: sMethodStr, total: sGameTotal }).eq('id', s.id);
@@ -323,7 +350,7 @@ export default function GamerarenaMasterERP() {
        due_amount: newDueAmount 
     }, { onConflict: 'customer_name' });
     
-    setModal(null); setCheckoutCash(''); setCheckoutUPI(''); setUseMembership(false); setSelectedMemberId('');
+    setModal(null); setPayMethod('Cash'); setSplitCash(0); setUseKhata(false); setCheckoutCash(''); setCheckoutUPI(''); setUseMembership(false); setSelectedMemberId('');
     await fetchSessions(); await fetchBalances(); await fetchInventory(); setIsProcessing(false);
   };
 
@@ -411,10 +438,22 @@ export default function GamerarenaMasterERP() {
     setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setIsProcessing(false);
   };
 
+  // 🟢 CLEAN WHATSAPP REPORT GENERATOR (FLAWLESS DATES & FLOAT MATH)
   const generateMemberReport = async (memberNameFull: string, hoursLeft: number, sysType: string) => {
     setIsProcessing(true);
     const cleanName = memberNameFull.split('|')[0].trim();
-    const { data } = await supabase.from('sales').select('*').like('method', `Member[${cleanName}]%`).order('date', { ascending: true });
+    
+    // Fresh fetch of remaining hours from inventory
+    const memberItem = cafeMenu.find(m => m.name.split('|')[0].trim() === cleanName);
+    let currentHoursLeft = Number(hoursLeft || 0);
+    if (memberItem) {
+       const { data: freshMember } = await supabase.from('inventory').select('stock_level').eq('id', memberItem.id).single();
+       if (freshMember && freshMember.stock_level !== null) {
+          currentHoursLeft = Number(freshMember.stock_level);
+       }
+    }
+
+    const { data } = await supabase.from('sales').select('*').ilike('method', `%Member[${cleanName}]%`).order('date', { ascending: true });
     
     let totalUsed = 0;
     let text = `*🎮 Gamerarena Membership*\n`;
@@ -423,16 +462,34 @@ export default function GamerarenaMasterERP() {
     
     if (data && data.length > 0) {
        data.forEach(s => {
-          text += `📅 ${s.date} | ${s.system} | ${s.duration} Hrs\n`;
-          totalUsed += Number(s.duration);
+          let displayDate = String(s.date || '').replace(/[\u200E\u200F]/g, '');
+          const parts = displayDate.split(/[-/]/);
+          
+          if (parts.length === 3) {
+              const y = parseInt(parts[0]);
+              const m = parseInt(parts[1]) - 1;
+              const d = parseInt(parts[2]);
+              const dObj = new Date(y, m, d);
+              if (!isNaN(dObj.getTime())) {
+                  displayDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'long' })}`;
+              }
+          }
+          
+          const sessionDur = Number(s.duration || 0);
+          text += `${displayDate} | ${s.system} | ${sessionDur} Hrs\n`;
+          totalUsed += sessionDur;
        });
     } else {
        text += `No sessions logged yet.\n`;
     }
     
-    text += `\n*Total Package:* ${totalUsed + hoursLeft} Hrs\n`;
+    totalUsed = Math.round(totalUsed * 100) / 100;
+    currentHoursLeft = Math.round(currentHoursLeft * 100) / 100;
+    const totalPackage = Math.round((totalUsed + currentHoursLeft) * 100) / 100;
+    
+    text += `\n*Total Package:* ${totalPackage} Hrs\n`;
     text += `*Total Used:* ${totalUsed} Hrs\n`;
-    text += `*Hours Remaining: ${hoursLeft} Hrs*\n`;
+    text += `*Hours Remaining: ${currentHoursLeft} Hrs*\n`;
     
     setMemberReport(text);
     setIsProcessing(false);
@@ -454,28 +511,21 @@ export default function GamerarenaMasterERP() {
          else if (String(s.system).includes('SIM')) simRev += gameCost;
 
          let mRaw = String(s.method || '').trim();
+         let m = mRaw;
          
-         if (mRaw.startsWith('Paid|')) {
-             const parts = mRaw.split('|');
-             const cashPart = parts.find(p => p.startsWith('Cash:'));
-             const upiPart = parts.find(p => p.startsWith('UPI:'));
-             if (cashPart) eodCash += Number(cashPart.split(':')[1] || 0);
-             if (upiPart) eodUPI += Number(upiPart.split(':')[1] || 0);
-         } 
-         else {
-             let m = mRaw;
-             if (mRaw.startsWith('Member[')) {
-                 const parts = mRaw.split('|');
-                 m = parts.length > 1 ? parts[1].trim() : 'Cash';
-             }
-             if (m.startsWith('Split|')) { 
-                 const parts = m.split('|'); 
-                 eodCash += Number(parts[1] || 0); 
-                 eodUPI += Number(parts[2] || 0); 
-             } 
-             else if (m === 'Cash') eodCash += grandTotal; 
-             else if (m === 'UPI') eodUPI += grandTotal;
+         if (mRaw.startsWith('Member[')) {
+             const splitIndex = mRaw.indexOf('] | ');
+             if (splitIndex !== -1) m = mRaw.substring(splitIndex + 4).trim();
+             else m = 'Cash'; 
          }
+
+         if (m.startsWith('Split|')) { 
+             const parts = m.split('|'); 
+             eodCash += Number(parts[1] || 0); 
+             eodUPI += Number(parts[2] || 0); 
+         } 
+         else if (m === 'Cash') eodCash += grandTotal; 
+         else if (m === 'UPI') eodUPI += grandTotal;
       });
     }
 
@@ -572,22 +622,11 @@ export default function GamerarenaMasterERP() {
 
   return (
     <>
-      {/* 🟢 AESTHETIC DARK MODE SCROLLBAR INJECTION */}
       <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #1E293B;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #00D0FF;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00D0FF; }
       `}} />
 
       <div className="fixed inset-0 flex flex-col md:flex-row bg-[#05070A] text-white font-sans">
@@ -709,7 +748,10 @@ export default function GamerarenaMasterERP() {
                                const prevDue = balances[activeSession.customer] || 0;
                                const totalWithKhata = grandTotal + prevDue;
                                setManualTotal(totalWithKhata); 
-                               setCheckoutCash(totalWithKhata);
+                               setPayMethod('Cash');
+                               setSplitCash(0);
+                               setUseKhata(false);
+                               setCheckoutCash('');
                                setCheckoutUPI(''); 
                                setUseMembership(false); 
                                setSelectedMemberId(''); 
@@ -819,7 +861,6 @@ export default function GamerarenaMasterERP() {
               {/* CONTENT AREA */}
               <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0 w-full">
                 
-                {/* 🟢 F&B MODAL WITH MIN-H-0 TO FORCE SCROLLING */}
                 {modal.type === 'fnb' ? (
                    <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-[#05070A] w-full min-w-0">
                       
@@ -840,7 +881,6 @@ export default function GamerarenaMasterERP() {
                             </div>
                          </div>
                          
-                         {/* 🟢 THE FIX: Added min-h-0 here to force the scrollbar to appear */}
                          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full p-4 custom-scrollbar bg-[#0B0E14]">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full min-w-0 pr-1">
                                {cafeMenu
@@ -928,6 +968,7 @@ export default function GamerarenaMasterERP() {
                 ) : (
                    // 🟢 ALL OTHER STANDARD MODALS
                    <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-4">
+                      
                       {modal.type === 'members_hub' && (() => {
                          const allMembers = cafeMenu.filter(i => String(i.category).startsWith('Membership - '));
                          return (
@@ -948,7 +989,7 @@ export default function GamerarenaMasterERP() {
                                                 const expDate = new Date(expMatch[1]);
                                                 const today = new Date(getTodayString());
                                                 if (expDate < today) isExpired = true;
-                                            }
+                                             }
                                              return (
                                                <button key={m.id} onClick={() => generateMemberReport(m.name, Number(m.stock || 0), sysType)} className={`w-full bg-[#0B0E14] border transition-all p-4 rounded-xl flex justify-between items-center text-left ${isExpired ? 'border-red-500/30 opacity-60' : 'hover:bg-[#1A2235] border-[#2D3748] hover:border-purple-500'}`}>
                                                    <div className="flex flex-col min-w-0 pr-2">
@@ -979,6 +1020,7 @@ export default function GamerarenaMasterERP() {
                          );
                       })()}
                       
+                      {/* 🟢 CHECKOUT MODAL */}
                       {modal.type === 'checkout' && (() => {
                          const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
                          const targetCategory = `Membership - ${sysType}`;
@@ -1020,11 +1062,9 @@ export default function GamerarenaMasterERP() {
                                        if (e.target.checked) {
                                           const newTot = modal.combinedFnbTotal + prevDue;
                                           setManualTotal(newTot);
-                                          setCheckoutCash(newTot);
                                        } else {
                                           const newTot = modal.combinedGamingTotal + modal.combinedFnbTotal + prevDue;
                                           setManualTotal(newTot);
-                                          setCheckoutCash(newTot);
                                        }
                                    }} />
                                    <span className="truncate">Deduct from <span className="text-white bg-purple-500/20 px-1 rounded">{sysType}</span> Memb.</span>
@@ -1067,37 +1107,55 @@ export default function GamerarenaMasterERP() {
                                     <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Final Grand Total (Includes Due)</label>
                                     <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
                                         <div className="px-3 text-[#00D0FF] shrink-0"><IndianRupee size={18}/></div>
-                                        <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => {
-                                            const val = Number(e.target.value);
-                                            setManualTotal(val);
-                                            setCheckoutCash(val);
+                                        <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => setManualTotal(e.target.value)} />
+                                    </div>
+                                 </div>
+
+                                 <label className="flex items-center gap-2 text-orange-400 font-bold text-sm cursor-pointer mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl transition-all">
+                                    <input type="checkbox" className="accent-orange-500 w-4 h-4 shrink-0" checked={useKhata} onChange={e => {
+                                        setUseKhata(e.target.checked);
+                                        if (e.target.checked) {
+                                            setCheckoutCash('');
                                             setCheckoutUPI('');
-                                        }} />
-                                    </div>
-                                 </div>
+                                        }
+                                    }} />
+                                    <span className="truncate">Partial Payment / Pay Later (Khata)</span>
+                                 </label>
 
-                                 <div className="grid grid-cols-2 gap-3 mt-4">
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Cash Received</label>
-                                      <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-emerald-500 outline-none font-bold" value={checkoutCash} onChange={e => setCheckoutCash(e.target.value)} placeholder="0" />
+                                 {useKhata ? (
+                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                       <div>
+                                         <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Cash Received</label>
+                                         <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-emerald-500 outline-none font-bold" value={checkoutCash} onChange={e => setCheckoutCash(e.target.value)} placeholder="0" />
+                                       </div>
+                                       <div>
+                                         <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">UPI Received</label>
+                                         <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold" value={checkoutUPI} onChange={e => setCheckoutUPI(e.target.value)} placeholder="0" />
+                                       </div>
+                                       <div className="col-span-2">
+                                          {(() => {
+                                              const totalGiven = Number(checkoutCash) + Number(checkoutUPI);
+                                              const newDue = Number(manualTotal) - totalGiven;
+                                              if (newDue > 0) return <div className="mt-1 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-center"><p className="text-xs text-orange-400 font-bold">₹{newDue} will be added to Khata (Due)</p></div>;
+                                              if (newDue < 0) return <div className="mt-1 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-center"><p className="text-xs text-emerald-400 font-bold">₹{Math.abs(newDue)} Advance / Change to return</p></div>;
+                                              return <div className="mt-1 p-3 bg-gray-800/30 border border-gray-700 rounded-xl text-center"><p className="text-xs text-gray-500 font-bold">Bill Settled Fully</p></div>;
+                                          })()}
+                                       </div>
                                     </div>
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">UPI Received</label>
-                                      <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold" value={checkoutUPI} onChange={e => setCheckoutUPI(e.target.value)} placeholder="0" />
+                                 ) : (
+                                    <div className="mt-4">
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
+                                      <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                                          <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                                      </select>
+                                      {payMethod === 'Split Payment' && (
+                                        <div className="p-3 mt-2 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
+                                          <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" value={splitCash || ''} onChange={e => setSplitCash(Number(e.target.value))} />
+                                          <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
+                                        </div>
+                                      )}
                                     </div>
-                                 </div>
-
-                                 {(() => {
-                                     const totalGiven = Number(checkoutCash) + Number(checkoutUPI);
-                                     const newDue = Number(manualTotal) - totalGiven;
-                                     
-                                     if (newDue > 0) {
-                                        return <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-center"><p className="text-xs text-orange-400 font-bold">₹{newDue} will be added to Khata (On Hold)</p></div>
-                                     } else if (newDue < 0) {
-                                        return <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-center"><p className="text-xs text-emerald-400 font-bold">₹{Math.abs(newDue)} Advance / Change to return</p></div>
-                                     }
-                                     return <div className="mt-4 p-3 bg-gray-800/30 border border-gray-700 rounded-xl text-center"><p className="text-xs text-gray-500 font-bold">Bill Settled Fully</p></div>;
-                                 })()}
+                                 )}
                              </div>
                              
                              <button onClick={handleCheckout} disabled={isProcessing || (useMembership && !selectedMemberId)} className="w-full bg-[#EF4444] text-white py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-red-600 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)]">
@@ -1107,6 +1165,7 @@ export default function GamerarenaMasterERP() {
                          );
                       })()}
                       
+                      {/* OTHER MODALS */}
                       {modal.type === 'checkin' && (
                         <div className="space-y-4">
                           {modal.hasActive ? (
