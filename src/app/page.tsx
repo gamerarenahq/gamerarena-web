@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag, Building2, Edit2, Trash2, Users } from 'lucide-react';
+import { X, User, Clock, ArrowRightLeft, Coffee, Plus, Minus, Gamepad2, Monitor, Car, IndianRupee, Pencil, Package, BarChart3, ShoppingCart, MoonStar, Copy, Lock, Tag, Building2, Edit2, Trash2, Users, Book } from 'lucide-react';
 
 function formatINR(num: number) { return Math.round(num || 0).toLocaleString('en-IN'); }
 
@@ -51,14 +51,23 @@ function format12Hour(time24: string) {
   return `${(h % 12 || 12).toString().padStart(2, '0')}:${minute} ${ampm}`;
 }
 
-function parse12HourToDate(time12: string) {
+// 🟢 MIDNIGHT BUG FIX: Now firmly anchors the 12-hour string to the session's exact date
+function parse12HourToDate(time12: string, dateStr?: string) {
   if (!time12) return new Date();
   const [timeStr, ampm] = time12.split(' ');
   let [hrs, mins] = timeStr.split(':');
-  let h = parseInt(hrs);
+  let h = parseInt(hrs, 10);
   if (ampm === 'PM' && h !== 12) h += 12;
   if (ampm === 'AM' && h === 12) h = 0;
-  const d = new Date(); d.setHours(h, parseInt(mins), 0, 0);
+  
+  const d = new Date();
+  if (dateStr) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+          d.setFullYear(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+  }
+  d.setHours(h, parseInt(mins, 10), 0, 0);
   return d;
 }
 
@@ -101,6 +110,9 @@ export default function GamerarenaMasterERP() {
   const [checkoutCash, setCheckoutCash] = useState<number | string>('');
   const [checkoutUPI, setCheckoutUPI] = useState<number | string>('');
   
+  const [khataReport, setKhataReport] = useState<any>(null);
+  const [khataSettleMethod, setKhataSettleMethod] = useState('Cash');
+
   const [manualTotal, setManualTotal] = useState<number | string>(0);
   const [extendDur, setExtendDur] = useState(0.5);
   const [editExtra, setEditExtra] = useState(0);
@@ -147,7 +159,8 @@ export default function GamerarenaMasterERP() {
     if (!currentTime || sessions.length === 0) return;
     sessions.filter(s => s.status === 'Active').forEach(s => {
        if (!s.entry_time) return;
-       const endTime = parse12HourToDate(s.entry_time).getTime() + (s.duration * 3600000);
+       // 🟢 MIDNIGHT BUG FIX: Passes the exact session date into the parser
+       const endTime = parse12HourToDate(s.entry_time, s.date).getTime() + (s.duration * 3600000);
        const timeLeftMins = (endTime - currentTime.getTime()) / 60000;
        if (timeLeftMins <= 5.05 && timeLeftMins > 0 && !notifiedRef.current.has(s.id)) {
          notifiedRef.current.add(s.id); playAlertSound();
@@ -286,17 +299,16 @@ export default function GamerarenaMasterERP() {
     const totalHoursPlayed = sessionsToClose.reduce((sum, s) => sum + Number(s.duration), 0);
     
     let selectedMemberName = '';
+    
     if (useMembership && selectedMemberId) {
         const memberItem = cafeMenu.find(m => String(m.id) === selectedMemberId);
         if (memberItem) {
             selectedMemberName = memberItem.name.split('|')[0].trim();
-            
-            let currentStock = Number(memberItem.stock || 0);
             const { data: freshItem } = await supabase.from('inventory').select('stock_level').eq('id', memberItem.id).single();
+            let currentStock = Number(memberItem.stock || 0);
             if (freshItem && freshItem.stock_level !== undefined && freshItem.stock_level !== null) {
                 currentStock = Number(freshItem.stock_level);
             }
-            
             const newStock = Math.max(0, Math.round((currentStock - totalHoursPlayed) * 100) / 100);
             await supabase.from('inventory').update({ stock_level: newStock }).eq('id', memberItem.id);
         }
@@ -438,12 +450,78 @@ export default function GamerarenaMasterERP() {
     setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setIsProcessing(false);
   };
 
-  // 🟢 CLEAN WHATSAPP REPORT GENERATOR (FLAWLESS DATES & FLOAT MATH)
+  const generateKhataReport = async (customerName: string, dueAmount: number) => {
+    setIsProcessing(true);
+    
+    const { data } = await supabase.from('sales')
+      .select('*')
+      .eq('customer', customerName)
+      .order('id', { ascending: false })
+      .limit(5);
+
+    let text = `*📒 Gamerarena Khata / Pending Due*\n`;
+    text += `*Gamer:* ${customerName}\n\n`;
+    text += `*Recent Sessions:*\n`;
+
+    if (data && data.length > 0) {
+       data.reverse().forEach(s => {
+          let displayDate = String(s.date || '').replace(/[\u200E\u200F]/g, '');
+          const parts = displayDate.split(/[-/]/);
+          if (parts.length === 3) {
+              const y = parseInt(parts[0]);
+              const m = parseInt(parts[1]) - 1;
+              const d = parseInt(parts[2]);
+              const dObj = new Date(y, m, d);
+              if (!isNaN(dObj.getTime())) {
+                  displayDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'short' })}`;
+              }
+          }
+          
+          const sessionDur = Number(s.duration || 0);
+          const gameCost = Number(s.total || 0);
+          const fnbCost = Number(s.fnb_total || 0);
+          
+          text += `${displayDate} | ${s.system} | ${sessionDur} Hrs | Gaming: ₹${gameCost}`;
+          if (fnbCost > 0) text += ` | F&B: ₹${fnbCost}`;
+          text += `\n`;
+       });
+    } else {
+       text += `No recent sessions found.\n`;
+    }
+    
+    text += `\n*Total Pending Due: ₹${dueAmount}*\n`;
+    
+    setKhataReport({ name: customerName, amount: dueAmount, text });
+    setIsProcessing(false);
+  };
+
+  const handleSettleKhata = async () => {
+    if (isProcessing || !khataReport) return;
+    setIsProcessing(true);
+    
+    await supabase.from('cafe_orders').insert({ 
+        date: getTodayString(), 
+        items: `[Retail] Khata Paid: ${khataReport.name}`, 
+        total_revenue: khataReport.amount, 
+        total_cost: 0, 
+        profit: khataReport.amount, 
+        method: khataSettleMethod 
+    });
+    
+    await supabase.from('customer_balances').upsert({ 
+        customer_name: khataReport.name, 
+        due_amount: 0 
+    }, { onConflict: 'customer_name' });
+
+    setKhataReport(null);
+    await fetchBalances();
+    setIsProcessing(false);
+  };
+
   const generateMemberReport = async (memberNameFull: string, hoursLeft: number, sysType: string) => {
     setIsProcessing(true);
     const cleanName = memberNameFull.split('|')[0].trim();
     
-    // Fresh fetch of remaining hours from inventory
     const memberItem = cafeMenu.find(m => m.name.split('|')[0].trim() === cleanName);
     let currentHoursLeft = Number(hoursLeft || 0);
     if (memberItem) {
@@ -471,7 +549,7 @@ export default function GamerarenaMasterERP() {
               const d = parseInt(parts[2]);
               const dObj = new Date(y, m, d);
               if (!isNaN(dObj.getTime())) {
-                  displayDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'long' })}`;
+                  displayDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'short' })}`;
               }
           }
           
@@ -664,6 +742,8 @@ export default function GamerarenaMasterERP() {
               <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full xl:w-auto">
                 <button onClick={() => { setMemberReport(''); setModal({ type: 'members_hub' }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Users size={14} /> Members</button>
 
+                <button onClick={() => { setKhataReport(null); setModal({ type: 'khata_hub' }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-orange-400 hover:text-orange-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Book size={14} /> Pending Dues</button>
+
                 <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
                 
                 <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); setModal({ type: 'fnb', isWalkin: true }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
@@ -680,7 +760,7 @@ export default function GamerarenaMasterERP() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full">
               {SYSTEMS.map(sys => {
                 const activeSession = activeOrReserved.find(a => a.system === sys.id && a.status === 'Active');
-                const upcomingBookings = activeOrReserved.filter(a => a.system === sys.id && a.status === 'Reserved').sort((a,b) => parse12HourToDate(a.entry_time).getTime() - parse12HourToDate(b.entry_time).getTime());
+                const upcomingBookings = activeOrReserved.filter(a => a.system === sys.id && a.status === 'Reserved').sort((a,b) => parse12HourToDate(a.entry_time, a.date).getTime() - parse12HourToDate(b.entry_time, b.date).getTime());
 
                 const holdSessions = activeSession ? getHoldSessions(activeSession.id) : [];
                 const holdNames = holdSessions.map(h => h.system).join(', ');
@@ -694,7 +774,7 @@ export default function GamerarenaMasterERP() {
                    const entryTimeStr = activeSession.entry_time;
                    const durationHrs = activeSession.duration;
                    if (!entryTimeStr) return { text: '', color: 'text-white', isOverdue: false };
-                   const endTime = parse12HourToDate(entryTimeStr).getTime() + (durationHrs * 3600000);
+                   const endTime = parse12HourToDate(entryTimeStr, activeSession.date).getTime() + (durationHrs * 3600000);
                    const timeLeftMins = (endTime - new Date().getTime()) / 60000;
                    if (timeLeftMins < 0) return { text: `🚨 ${Math.abs(Math.round(timeLeftMins))}m OVER`, color: 'text-red-400 animate-pulse', isOverdue: true };
                    if (timeLeftMins <= 5.05) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-red-400', isOverdue: false };
@@ -728,7 +808,7 @@ export default function GamerarenaMasterERP() {
                                 </p>
                                 <div className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold mt-1 group shrink-0">
                                     <Clock size={10}/> {activeSession.entry_time} <span className="text-[#1E293B]">|</span> {activeSession.duration}h
-                                    <button onClick={() => { setEditTime24(`${String(parse12HourToDate(activeSession.entry_time).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time).getMinutes()).padStart(2,'0')}`); setModal({ type: 'edit_time', session: activeSession }); }} className={`ml-1 opacity-80 md:opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'hover:text-red-400' : 'hover:text-[#00D0FF]'}`}><Pencil size={10}/></button>
+                                    <button onClick={() => { setEditTime24(`${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getMinutes()).padStart(2,'0')}`); setModal({ type: 'edit_time', session: activeSession }); }} className={`ml-1 opacity-80 md:opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'hover:text-red-400' : 'hover:text-[#00D0FF]'}`}><Pencil size={10}/></button>
                                 </div>
                              </div>
                              <div className={`text-[10px] sm:text-[11px] font-black bg-black/40 px-2 py-1 rounded-md border border-[#1E293B] shrink-0 ${timerInfo?.color}`}>{timerInfo?.text}</div>
@@ -838,7 +918,7 @@ export default function GamerarenaMasterERP() {
         {/* 🟢 MODAL OVERLAY */}
         {modal && (
           <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
-            <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative overflow-hidden transition-all duration-200 w-full"
+            <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative w-full overflow-hidden transition-all duration-200"
                  style={{ maxWidth: modal.type === 'fnb' ? '1100px' : '480px', maxHeight: '90vh' }}>
 
               {/* MODAL HEADER */}
@@ -854,6 +934,7 @@ export default function GamerarenaMasterERP() {
                     {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Edit F&B Tab`)}
                     {modal.type === 'misc_income' && `Misc / Retail Income`}
                     {modal.type === 'members_hub' && `Memberships Hub`}
+                    {modal.type === 'khata_hub' && `Pending Dues (Khata)`}
                   </h2>
                   <button onClick={() => setModal(null)} className="p-2 bg-[#1A2235] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors shrink-0"><X size={16}/></button>
               </div>
@@ -862,10 +943,10 @@ export default function GamerarenaMasterERP() {
               <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0 w-full">
                 
                 {modal.type === 'fnb' ? (
-                   <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-[#05070A] w-full min-w-0">
+                   <div className="flex flex-col md:flex-row h-full bg-[#05070A] w-full min-w-0">
                       
                       {/* LEFT PANEL: Categories & Grid */}
-                      <div className="flex-1 flex flex-col min-w-0 min-h-0 border-b md:border-b-0 md:border-r border-[#1E293B]">
+                      <div className="flex-1 flex flex-col min-w-0 border-b md:border-b-0 md:border-r border-[#1E293B] overflow-hidden">
                          
                          <div className="p-4 border-b border-[#1E293B] bg-[#121824] shrink-0 min-w-0 w-full overflow-hidden">
                             {!modal.isWalkin && (
@@ -881,7 +962,8 @@ export default function GamerarenaMasterERP() {
                             </div>
                          </div>
                          
-                         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full p-4 custom-scrollbar bg-[#0B0E14]">
+                         {/* Grid */}
+                         <div className="flex-1 overflow-y-auto w-full p-4 custom-scrollbar bg-[#0B0E14]">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full min-w-0 pr-1">
                                {cafeMenu
                                   .filter(item => item.category === fnbCategory)
@@ -969,6 +1051,58 @@ export default function GamerarenaMasterERP() {
                    // 🟢 ALL OTHER STANDARD MODALS
                    <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-4">
                       
+                      {/* 🟢 KHATA HUB MODAL */}
+                      {modal.type === 'khata_hub' && (() => {
+                         const dueCustomers = Object.entries(balances).filter(([name, amount]) => amount > 0);
+                         
+                         return (
+                           <div className="space-y-4">
+                              {!khataReport ? (
+                                 <>
+                                    <p className="text-sm text-gray-400 mb-2">Select a customer to view their pending balance summary.</p>
+                                    <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                                       {dueCustomers.length === 0 ? (
+                                           <p className="text-gray-500 italic text-center text-sm py-4">No pending Khatas found.</p>
+                                       ) : (
+                                           dueCustomers.map(([cName, cAmt]) => (
+                                              <button key={cName} onClick={() => generateKhataReport(cName, cAmt)} className="w-full bg-[#0B0E14] border border-[#2D3748] hover:border-orange-500 p-4 rounded-xl flex justify-between items-center text-left transition-all">
+                                                 <span className="font-bold text-white text-base truncate pr-2">{cName}</span>
+                                                 <span className="text-orange-400 font-black text-sm shrink-0">₹{cAmt} Due</span>
+                                              </button>
+                                           ))
+                                       )}
+                                    </div>
+                                 </>
+                              ) : (
+                                 <>
+                                    <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words max-h-[300px] overflow-y-auto custom-scrollbar">
+                                       {khataReport.text}
+                                    </div>
+                                    
+                                    <div className="pt-3 mt-3 border-t border-[#1E293B]">
+                                       <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Settle Khata Balance</label>
+                                       <div className="flex gap-2 mt-1.5">
+                                          <select className="bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none flex-1 font-bold" value={khataSettleMethod} onChange={e => setKhataSettleMethod(e.target.value)}>
+                                             <option>Cash</option><option>UPI</option>
+                                          </select>
+                                          <button onClick={handleSettleKhata} disabled={isProcessing} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0">
+                                             Mark Paid
+                                          </button>
+                                       </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 pt-3">
+                                       <button onClick={() => setKhataReport(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 rounded-xl font-bold hover:text-white transition-all text-sm">Back to List</button>
+                                       <button onClick={() => { navigator.clipboard.writeText(khataReport.text); alert("Khata Summary copied to clipboard!"); }} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black hover:bg-white transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(0,208,255,0.3)]">
+                                         <Copy size={16}/> Copy Report
+                                       </button>
+                                    </div>
+                                 </>
+                              )}
+                           </div>
+                         );
+                      })()}
+
                       {modal.type === 'members_hub' && (() => {
                          const allMembers = cafeMenu.filter(i => String(i.category).startsWith('Membership - '));
                          return (
