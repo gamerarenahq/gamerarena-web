@@ -51,7 +51,6 @@ function format12Hour(time24: string) {
   return `${(h % 12 || 12).toString().padStart(2, '0')}:${minute} ${ampm}`;
 }
 
-// 🟢 MIDNIGHT BUG FIX: Now firmly anchors the 12-hour string to the session's exact date
 function parse12HourToDate(time12: string, dateStr?: string) {
   if (!time12) return new Date();
   const [timeStr, ampm] = time12.split(' ');
@@ -159,7 +158,6 @@ export default function GamerarenaMasterERP() {
     if (!currentTime || sessions.length === 0) return;
     sessions.filter(s => s.status === 'Active').forEach(s => {
        if (!s.entry_time) return;
-       // 🟢 MIDNIGHT BUG FIX: Passes the exact session date into the parser
        const endTime = parse12HourToDate(s.entry_time, s.date).getTime() + (s.duration * 3600000);
        const timeLeftMins = (endTime - currentTime.getTime()) / 60000;
        if (timeLeftMins <= 5.05 && timeLeftMins > 0 && !notifiedRef.current.has(s.id)) {
@@ -915,11 +913,15 @@ export default function GamerarenaMasterERP() {
           </div>
         </div>
 
-        {/* 🟢 MODAL OVERLAY */}
+        {/* 🟢 MODAL OVERLAY: Strict Viewport Locking */}
         {modal && (
           <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
-            <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative w-full overflow-hidden transition-all duration-200"
-                 style={{ maxWidth: modal.type === 'fnb' ? '1100px' : '480px', maxHeight: '90vh' }}>
+            <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative overflow-hidden transition-all duration-200 w-full"
+                 style={{ 
+                    maxWidth: modal.type === 'fnb' ? '1100px' : '480px', 
+                    height: modal.type === 'fnb' ? '85vh' : 'auto', 
+                    maxHeight: '85vh' 
+                 }}>
 
               {/* MODAL HEADER */}
               <div className="flex justify-between items-center p-4 sm:p-5 border-b border-[#1E293B] shrink-0 bg-[#0B0E14] w-full min-w-0">
@@ -942,11 +944,12 @@ export default function GamerarenaMasterERP() {
               {/* CONTENT AREA */}
               <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0 w-full">
                 
+                {/* 🟢 STRICTLY CONTAINED F&B MODAL */}
                 {modal.type === 'fnb' ? (
-                   <div className="flex flex-col md:flex-row h-full bg-[#05070A] w-full min-w-0">
+                   <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-[#05070A] w-full min-w-0">
                       
                       {/* LEFT PANEL: Categories & Grid */}
-                      <div className="flex-1 flex flex-col min-w-0 border-b md:border-b-0 md:border-r border-[#1E293B] overflow-hidden">
+                      <div className="flex-1 flex flex-col min-w-0 min-h-0 border-b md:border-b-0 md:border-r border-[#1E293B]">
                          
                          <div className="p-4 border-b border-[#1E293B] bg-[#121824] shrink-0 min-w-0 w-full overflow-hidden">
                             {!modal.isWalkin && (
@@ -962,8 +965,7 @@ export default function GamerarenaMasterERP() {
                             </div>
                          </div>
                          
-                         {/* Grid */}
-                         <div className="flex-1 overflow-y-auto w-full p-4 custom-scrollbar bg-[#0B0E14]">
+                         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full p-4 custom-scrollbar bg-[#0B0E14]">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 w-full min-w-0 pr-1">
                                {cafeMenu
                                   .filter(item => item.category === fnbCategory)
@@ -1010,11 +1012,11 @@ export default function GamerarenaMasterERP() {
                          </div>
                       </div>
 
-                      {/* RIGHT PANEL: Cart */}
-                      <div className="w-full md:w-80 lg:w-96 flex flex-col shrink-0 bg-[#0B0E14]">
+                      {/* 🟢 RIGHT PANEL: Cart (Locked Height) */}
+                      <div className="w-full md:w-80 lg:w-96 flex flex-col shrink-0 bg-[#0B0E14] h-full min-h-0">
                          <div className="flex-1 flex flex-col min-h-0 p-4">
                             <h3 className="font-black text-gray-500 text-[10px] uppercase mb-4 shrink-0">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
-                            {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4">No items added yet.</p> : (
+                            {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4 shrink-0">No items added yet.</p> : (
                               <div className="space-y-2.5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 min-h-0 pr-3">
                                 {cart.map(c => (
                                   <div key={c.id} className="flex justify-between items-center text-sm text-gray-300 min-w-0 w-full shrink-0">
@@ -1051,7 +1053,6 @@ export default function GamerarenaMasterERP() {
                    // 🟢 ALL OTHER STANDARD MODALS
                    <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-4">
                       
-                      {/* 🟢 KHATA HUB MODAL */}
                       {modal.type === 'khata_hub' && (() => {
                          const dueCustomers = Object.entries(balances).filter(([name, amount]) => amount > 0);
                          
@@ -1154,7 +1155,6 @@ export default function GamerarenaMasterERP() {
                          );
                       })()}
                       
-                      {/* 🟢 CHECKOUT MODAL */}
                       {modal.type === 'checkout' && (() => {
                          const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
                          const targetCategory = `Membership - ${sysType}`;
