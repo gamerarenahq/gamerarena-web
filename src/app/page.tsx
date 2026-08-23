@@ -137,6 +137,135 @@ export default function GamerarenaMasterERP() {
 
   const notifiedRef = useRef(new Set<number>());
 
+  const stateRef = useRef({ modal, isProcessing });
+  const sessionsRef = useRef(sessions);
+  const balancesRef = useRef(balances);
+
+  useEffect(() => { stateRef.current = { modal, isProcessing }; }, [modal, isProcessing]);
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+  useEffect(() => { balancesRef.current = balances; }, [balances]);
+
+  const openFnbForSession = (activeSession: any) => {
+    const parsedCart: any[] = [];
+    if (activeSession.fnb_items && typeof activeSession.fnb_items === 'string') {
+        const cleanedStr = activeSession.fnb_items.replace(/\[\]\s*\|?/g, '').trim();
+        if (cleanedStr) {
+          const items = cleanedStr.split('|').map((s: string) => s.trim()).filter(Boolean);
+          items.forEach((itemStr: string) => {
+              let pureName = itemStr.replace(/^(\d+x\s*)+/, '').trim();
+              const match = itemStr.match(/^(\d+)x/);
+              let qty = match ? parseInt(match[1]) : 1;
+              
+              const existing = parsedCart.find(p => p.name === pureName || p.id === pureName);
+              if (existing) {
+                  existing.qty += qty;
+              } else {
+                  let menuItem = cafeMenu.find(m => m.name.toLowerCase() === pureName.toLowerCase());
+                  if(!menuItem) menuItem = cafeMenu.find(m => m.name.toLowerCase().replace(/[^a-z0-9]/g,'') === pureName.toLowerCase().replace(/[^a-z0-9]/g,''));
+                  if(!menuItem) menuItem = cafeMenu.find(m => pureName.toLowerCase().includes(m.name.toLowerCase().split('/')[0]) || m.name.toLowerCase().includes(pureName.toLowerCase().split('/')[0]));
+                  
+                  if (menuItem) {
+                      parsedCart.push({ ...menuItem, qty, name: menuItem.name }); 
+                  } else {
+                      parsedCart.push({ id: pureName, name: `⚠️ ${pureName} (Menu Error)`, price: 0, cost: 0, qty });
+                  }
+              }
+          });
+        }
+    }
+    setCart(parsedCart);
+    setModal({ type: 'fnb', session: activeSession, originalCart: JSON.parse(JSON.stringify(parsedCart)) });
+  };
+
+  const triggerCheckoutModalFromRef = (activeSession: any) => {
+    const holdSessions = sessionsRef.current.filter(s => s.status === 'Hold' && s.method === `LinkedTo:${activeSession.id}`);
+    const holdNames = holdSessions.map(h => h.system).join(', ');
+    const gamingTotal = Number(activeSession.total || 0); 
+    const fnbTotal = Number(activeSession.fnb_total || 0);
+    const holdTotal = holdSessions.reduce((sum, h) => sum + Number(h.total) + Number(h.fnb_total || 0), 0);
+    const grandTotal = gamingTotal + fnbTotal + holdTotal;
+
+    const prevDue = balancesRef.current[activeSession.customer] || 0;
+    const totalWithKhata = grandTotal + prevDue;
+
+    let cGaming = 0; let cFnb = 0;
+    [...holdSessions, activeSession].forEach(s => {
+       cGaming += Number(s.total || 0); 
+       cFnb += Number(s.fnb_total || 0);
+    });
+
+    setManualTotal(totalWithKhata); 
+    setPayMethod('Cash');
+    setSplitCash(0);
+    setUseKhata(false);
+    setCheckoutCash('');
+    setCheckoutUPI(''); 
+    setUseMembership(false); 
+    setSelectedMemberId(''); 
+    setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames, combinedFnbTotal: cFnb, combinedGamingTotal: cGaming, prevDue }); 
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        const targetTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
+        if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT') {
+            if (e.key === 'Escape') setModal(null);
+            return;
+        }
+
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        if (e.key === 'Escape') {
+            setModal(null);
+            return;
+        }
+
+        if (stateRef.current.modal) return;
+
+        if (e.code.startsWith('Digit') || e.code.startsWith('Numpad')) {
+            let num = 0;
+            if (e.code.startsWith('Digit')) num = parseInt(e.code.replace('Digit', ''), 10);
+            if (e.code.startsWith('Numpad')) num = parseInt(e.code.replace('Numpad', ''), 10);
+
+            if (num >= 1 && num <= 6) {
+                e.preventDefault(); 
+                const sysId = SYSTEMS[num - 1].id;
+                const activeOrRes = sessionsRef.current.filter(s => ['Active', 'Reserved'].includes(s.status));
+                const activeSession = activeOrRes.find(a => a.system === sysId && a.status === 'Active');
+                
+                if (e.shiftKey) {
+                    if (activeSession) triggerCheckoutModalFromRef(activeSession);
+                } else {
+                    if (activeSession) {
+                        setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys: SYSTEMS[num-1], hasActive: true });
+                    } else {
+                        const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); 
+                        setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys: SYSTEMS[num-1], hasActive: false });
+                    }
+                }
+                return;
+            }
+        }
+
+        const key = e.key.toLowerCase();
+        if (['f','c','m','p','i','v','r'].includes(key)) {
+            e.preventDefault(); 
+            switch (key) {
+                case 'f': setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); setModal({ type: 'fnb', isWalkin: true }); break;
+                case 'c': if (!stateRef.current.isProcessing) document.getElementById('btn-close-day')?.click(); break;
+                case 'm': setMemberReport(''); setModal({ type: 'members_hub' }); break;
+                case 'p': setKhataReport(null); setModal({ type: 'khata_hub' }); break;
+                case 'i': window.location.href = '/vault/inventory'; break;
+                case 'v': window.location.href = '/vault'; break;
+                case 'r': window.location.href = '/vault/ledger'; break;
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
@@ -236,7 +365,12 @@ export default function GamerarenaMasterERP() {
   const handleEditSetup = async () => {
     if (isProcessing) return; setIsProcessing(true);
     const newTotal = getPrice(modal.sys.type, dur, extra);
-    await supabase.from('sales').update({ customer: editName, duration: dur, total: newTotal }).eq('id', modal.session.id);
+    await supabase.from('sales').update({ 
+        customer: editName, 
+        duration: dur, 
+        total: newTotal,
+        entry_time: format12Hour(editTime24) 
+    }).eq('id', modal.session.id);
     setModal(null); await fetchSessions(); setIsProcessing(false);
   };
 
@@ -261,13 +395,6 @@ export default function GamerarenaMasterERP() {
     
     notifiedRef.current.delete(modal.session.id);
     await supabase.from('sales').update({ duration: newDur, total: newTotal }).eq('id', modal.session.id);
-    setModal(null); await fetchSessions(); setIsProcessing(false);
-  };
-
-  const handleEditTime = async () => {
-    if (isProcessing) return; setIsProcessing(true);
-    notifiedRef.current.delete(modal.session.id);
-    await supabase.from('sales').update({ entry_time: format12Hour(editTime24) }).eq('id', modal.session.id);
     setModal(null); await fetchSessions(); setIsProcessing(false);
   };
 
@@ -355,10 +482,14 @@ export default function GamerarenaMasterERP() {
       notifiedRef.current.delete(s.id);
     }
     
-    await supabase.from('customer_balances').upsert({ 
-       customer_name: modal.session.customer, 
-       due_amount: newDueAmount 
-    }, { onConflict: 'customer_name' });
+    if (newDueAmount > 0) {
+        await supabase.from('customer_balances').upsert({ 
+           customer_name: modal.session.customer, 
+           due_amount: newDueAmount 
+        }, { onConflict: 'customer_name' });
+    } else {
+        await supabase.from('customer_balances').delete().eq('customer_name', modal.session.customer);
+    }
     
     setModal(null); setPayMethod('Cash'); setSplitCash(0); setUseKhata(false); setCheckoutCash(''); setCheckoutUPI(''); setUseMembership(false); setSelectedMemberId('');
     await fetchSessions(); await fetchBalances(); await fetchInventory(); setIsProcessing(false);
@@ -448,27 +579,61 @@ export default function GamerarenaMasterERP() {
     setModal(null); setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setIsProcessing(false);
   };
 
+  // 🟢 REFINED KHATA REPORT: Scans specifically for unpaid/partially paid sessions
   const generateKhataReport = async (customerName: string, dueAmount: number) => {
     setIsProcessing(true);
     
+    // Fetch last 10 completed sessions to look for short-payments
     const { data } = await supabase.from('sales')
       .select('*')
       .eq('customer', customerName)
+      .eq('status', 'Completed')
       .order('id', { ascending: false })
-      .limit(5);
+      .limit(10);
 
     let text = `*📒 Gamerarena Khata / Pending Due*\n`;
     text += `*Gamer:* ${customerName}\n\n`;
-    text += `*Recent Sessions:*\n`;
+
+    const unpaidSessions: any[] = [];
 
     if (data && data.length > 0) {
-       data.reverse().forEach(s => {
+        data.forEach(s => {
+            let gameCost = Number(s.total || 0);
+            let fnbCost = Number(s.fnb_total || 0);
+            let expected = gameCost + fnbCost;
+            
+            let mRaw = String(s.method || '').trim();
+            if (mRaw.startsWith('Member[')) {
+                const splitIndex = mRaw.indexOf('] | ');
+                if (splitIndex !== -1) mRaw = mRaw.substring(splitIndex + 4).trim();
+                else mRaw = 'Cash'; 
+                expected = fnbCost; 
+            }
+
+            let paid = 0;
+            if (mRaw.startsWith('Split|')) {
+                const parts = mRaw.split('|');
+                paid = Number(parts[1] || 0) + Number(parts[2] || 0);
+            } else if (mRaw === 'Cash' || mRaw === 'UPI') {
+                paid = expected;
+            }
+
+            if (expected > paid) {
+                unpaidSessions.push(s);
+            }
+        });
+    }
+
+    if (unpaidSessions.length > 0) {
+       text += `*Unpaid Sessions:*\n`;
+       // Reverse to show chronological order
+       unpaidSessions.reverse().forEach(s => {
           let displayDate = String(s.date || '').replace(/[\u200E\u200F]/g, '');
           const parts = displayDate.split(/[-/]/);
           if (parts.length === 3) {
-              const y = parseInt(parts[0]);
-              const m = parseInt(parts[1]) - 1;
-              const d = parseInt(parts[2]);
+              const y = parseInt(parts[0], 10);
+              const m = parseInt(parts[1], 10) - 1;
+              const d = parseInt(parts[2], 10);
               const dObj = new Date(y, m, d);
               if (!isNaN(dObj.getTime())) {
                   displayDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'short' })}`;
@@ -484,7 +649,7 @@ export default function GamerarenaMasterERP() {
           text += `\n`;
        });
     } else {
-       text += `No recent sessions found.\n`;
+       text += `*Recent Context:*\nNo un-paid sessions found in recent history. Manual due applied.\n`;
     }
     
     text += `\n*Total Pending Due: ₹${dueAmount}*\n`;
@@ -506,10 +671,7 @@ export default function GamerarenaMasterERP() {
         method: khataSettleMethod 
     });
     
-    await supabase.from('customer_balances').upsert({ 
-        customer_name: khataReport.name, 
-        due_amount: 0 
-    }, { onConflict: 'customer_name' });
+    await supabase.from('customer_balances').delete().eq('customer_name', khataReport.name);
 
     setKhataReport(null);
     await fetchBalances();
@@ -542,9 +704,9 @@ export default function GamerarenaMasterERP() {
           const parts = displayDate.split(/[-/]/);
           
           if (parts.length === 3) {
-              const y = parseInt(parts[0]);
-              const m = parseInt(parts[1]) - 1;
-              const d = parseInt(parts[2]);
+              const y = parseInt(parts[0], 10);
+              const m = parseInt(parts[1], 10) - 1;
+              const d = parseInt(parts[2], 10);
               const dObj = new Date(y, m, d);
               if (!isNaN(dObj.getTime())) {
                   displayDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'short' })}`;
@@ -705,7 +867,7 @@ export default function GamerarenaMasterERP() {
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00D0FF; }
       `}} />
 
-      <div className="fixed inset-0 flex flex-col md:flex-row bg-[#05070A] text-white font-sans">
+      <div className="fixed inset-0 flex flex-col md:flex-row bg-[#05070A] text-white font-sans overflow-hidden">
         
         {/* DESKTOP SIDEBAR */}
         <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4">
@@ -724,39 +886,35 @@ export default function GamerarenaMasterERP() {
         </div>
 
         {/* MAIN CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 pb-20 md:pb-4 custom-scrollbar">
-          <div className="max-w-[1600px] w-full mx-auto flex flex-col">
+        <div className="flex-1 overflow-hidden p-2 sm:p-3 pb-24 md:pb-2 flex flex-col h-full w-full">
+          <div className="max-w-[1600px] w-full h-full mx-auto flex flex-col min-h-0">
             
-            {/* HEADER */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-4">
+            {/* 🟢 HEADER (Compressed vertically) */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 mb-2 shrink-0 w-full min-w-0">
               <div className="flex justify-between items-center w-full xl:w-auto">
-                 <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1>
+                 <h1 className="text-xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1>
                  <div className="xl:hidden text-right bg-[#121824] px-3 py-1 rounded-lg border border-[#1E293B]">
                     <p className="text-gray-500 text-[8px] font-black uppercase">Pending</p>
                     <p className="text-[#FF754C] text-xs font-black">₹{totalFloorPending}</p>
                  </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full xl:w-auto">
-                <button onClick={() => { setMemberReport(''); setModal({ type: 'members_hub' }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Users size={14} /> Members</button>
-
-                <button onClick={() => { setKhataReport(null); setModal({ type: 'khata_hub' }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-orange-400 hover:text-orange-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Book size={14} /> Pending Dues</button>
-
-                <button onClick={getEndOfDaySummary} disabled={isProcessing} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><MoonStar size={14} /> Close Day</button>
-                
-                <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); setModal({ type: 'fnb', isWalkin: true }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><ShoppingCart size={14} /> Direct F&B</button>
-                
-                <button onClick={() => { setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setModal({ type: 'misc_income' }); }} className="flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm"><Tag size={14} /> Misc</button>
+              <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto min-w-0">
+                <button onClick={() => { setMemberReport(''); setModal({ type: 'members_hub' }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><Users size={14} /> Members <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">M</kbd></button>
+                <button onClick={() => { setKhataReport(null); setModal({ type: 'khata_hub' }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-orange-400 hover:text-orange-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><Book size={14} /> Pending Dues <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">P</kbd></button>
+                <button id="btn-close-day" onClick={getEndOfDaySummary} disabled={isProcessing} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><MoonStar size={14} /> Close Day <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">C</kbd></button>
+                <button onClick={() => { setCart([]); setFnbPayMethod('Cash'); setFnbSplitCash(0); setModal({ type: 'fnb', isWalkin: true }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-[#00D0FF] hover:text-[#00D0FF] px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><ShoppingCart size={14} /> Direct F&B <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">F</kbd></button>
+                <button onClick={() => { setMiscDesc(''); setMiscAmount(''); setMiscPayMethod('Cash'); setMiscSplitCash(0); setModal({ type: 'misc_income' }); }} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><Tag size={14} /> Misc</button>
 
                 <div className="hidden sm:block h-6 w-px bg-[#1E293B] mx-1"></div>
-                {currentTime && <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p><p className="text-white text-sm font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p></div>}
-                <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-4 py-1.5 rounded-xl border border-[#1E293B] shadow-sm"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Pending</p><p className="text-[#FF754C] text-sm font-black tabular-nums tracking-tight leading-none">₹{totalFloorPending}</p></div>
+                {currentTime && <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-3 py-1 rounded-xl border border-[#1E293B]"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Local Time</p><p className="text-white text-xs font-black tabular-nums tracking-tight leading-none">{currentTime.toLocaleTimeString('en-US', { hour12: true })}</p></div>}
+                <div className="hidden sm:block text-right bg-gradient-to-br from-[#121824] to-[#0B0E14] px-3 py-1 rounded-xl border border-[#1E293B]"><p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-0.5">Pending</p><p className="text-[#FF754C] text-xs font-black tabular-nums tracking-tight leading-none">₹{totalFloorPending}</p></div>
               </div>
             </div>
             
-            {/* SYSTEM CARDS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full">
-              {SYSTEMS.map(sys => {
+            {/* 🟢 SYSTEM CARDS GRID (Forced Height Confinement) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 w-full flex-1 min-h-0 overflow-y-auto lg:overflow-hidden custom-scrollbar">
+              {SYSTEMS.map((sys, index) => {
                 const activeSession = activeOrReserved.find(a => a.system === sys.id && a.status === 'Active');
                 const upcomingBookings = activeOrReserved.filter(a => a.system === sys.id && a.status === 'Reserved').sort((a,b) => parse12HourToDate(a.entry_time, a.date).getTime() - parse12HourToDate(b.entry_time, b.date).getTime());
 
@@ -774,136 +932,121 @@ export default function GamerarenaMasterERP() {
                    if (!entryTimeStr) return { text: '', color: 'text-white', isOverdue: false };
                    const endTime = parse12HourToDate(entryTimeStr, activeSession.date).getTime() + (durationHrs * 3600000);
                    const timeLeftMins = (endTime - new Date().getTime()) / 60000;
-                   if (timeLeftMins < 0) return { text: `🚨 ${Math.abs(Math.round(timeLeftMins))}m OVER`, color: 'text-red-400 animate-pulse', isOverdue: true };
-                   if (timeLeftMins <= 5.05) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-red-400', isOverdue: false };
+                   if (timeLeftMins < 0) return { text: `🚨 ${Math.abs(Math.round(timeLeftMins))}m OVER`, color: 'text-red-400 animate-pulse drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]', isOverdue: true };
+                   if (timeLeftMins <= 5.05) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.6)]', isOverdue: false };
                    if (timeLeftMins <= 10) return { text: `⚠️ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-orange-400', isOverdue: false };
-                   return { text: `⏳ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-[#00D0FF]', isOverdue: false };
+                   return { text: `⏳ ${Math.round(timeLeftMins)}m LEFT`, color: 'text-[#00D0FF] drop-shadow-[0_0_5px_rgba(0,208,255,0.4)]', isOverdue: false };
                 })() : null;
                 
                 const isOverdue = timerInfo?.isOverdue;
                 const userDue = activeSession ? (balances[activeSession.customer] || 0) : 0;
 
                 return (
-                  <div key={sys.id} className={`flex flex-col p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 min-w-0 ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
-                    <div className="flex justify-between items-center mb-3 shrink-0">
+                  <div key={sys.id} className={`flex flex-col justify-between p-2.5 rounded-xl border transition-all duration-300 min-h-0 h-full ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
+                    
+                    <div className="flex justify-between items-center mb-1 shrink-0">
                       <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}><sys.icon size={16}/></div>
-                        <h3 className={`text-base sm:text-lg font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>{sys.id}</h3>
+                        <div className={`p-1.5 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}><sys.icon size={14}/></div>
+                        <h3 className={`text-sm sm:text-base font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>
+                           {sys.id} <kbd className="hidden lg:inline-block ml-1 px-1 py-0 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono align-middle">{index + 1}</kbd>
+                        </h3>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest shrink-0 ${activeSession ? (isOverdue ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF]/30") : "bg-[#1A2235] text-gray-500 border border-[#2D3748]"}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest shrink-0 ${activeSession ? (isOverdue ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF]/30") : "bg-[#1A2235] text-gray-500 border border-[#2D3748]"}`}>
                         {activeSession ? "ACTIVE" : "FREE"}
                       </span>
                     </div>
 
                     {activeSession ? (
-                      <div className="flex flex-col gap-3 min-w-0">
-                          <div className="flex justify-between items-start gap-2 min-w-0">
+                      <div className="flex flex-col gap-2 min-h-0 h-full justify-between">
+                          <div className="flex justify-between items-center min-w-0 shrink-0">
                              <div className="min-w-0 flex-1">
-                                <p className="font-black text-white text-sm flex items-center gap-1.5">
-                                  <User size={12} className={`shrink-0 ${isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}`}/> 
+                                <p className="font-black text-white text-xs sm:text-sm flex items-center gap-1">
+                                  <User size={10} className={`shrink-0 ${isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}`}/> 
                                   <span className="truncate pr-1">{activeSession.customer}</span>
-                                  {userDue > 0 && <span className="bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-widest font-black shrink-0 border border-orange-500/30">Due: ₹{userDue}</span>}
+                                  {userDue > 0 && <span className="bg-orange-500/20 text-orange-400 px-1 py-0.5 rounded text-[7px] uppercase tracking-widest font-black shrink-0 border border-orange-500/30">Due: ₹{userDue}</span>}
                                 </p>
-                                <div className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold mt-1 group shrink-0">
-                                    <Clock size={10}/> {activeSession.entry_time} <span className="text-[#1E293B]">|</span> {activeSession.duration}h
-                                    <button onClick={() => { setEditTime24(`${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getMinutes()).padStart(2,'0')}`); setModal({ type: 'edit_time', session: activeSession }); }} className={`ml-1 opacity-80 md:opacity-0 group-hover:opacity-100 transition-opacity ${isOverdue ? 'hover:text-red-400' : 'hover:text-[#00D0FF]'}`}><Pencil size={10}/></button>
+                                <div className="flex items-center gap-1 text-gray-400 text-[9px] font-bold mt-0.5">
+                                    <Clock size={9}/> {activeSession.entry_time} <span className="text-[#1E293B]">|</span> {activeSession.duration}h
                                 </div>
                              </div>
-                             <div className={`text-[10px] sm:text-[11px] font-black bg-black/40 px-2 py-1 rounded-md border border-[#1E293B] shrink-0 ${timerInfo?.color}`}>{timerInfo?.text}</div>
+                             
+                             {/* 🟢 MASSIVE TOP-RIGHT TIMER */}
+                             <div className={`text-base sm:text-lg font-black bg-black/60 px-2.5 py-1 rounded-lg border shadow-sm tracking-wide whitespace-nowrap shrink-0 ${timerInfo?.color} ${isOverdue ? 'border-red-500/50' : 'border-[#00D0FF]/40'}`}>
+                                 {timerInfo?.text}
+                             </div>
                           </div>
                           
-                          <div className={`rounded-xl p-2.5 border ${isOverdue ? 'bg-red-950/30 border-red-900/50' : 'bg-[#05070A]/50 border-[#1E293B]'} space-y-1`}>
-                            {holdTotal > 0 && <div className="flex justify-between text-[10px] font-bold text-orange-400"><span>Hold ({holdNames})</span><span>₹{holdTotal}</span></div>}
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400"><span>Gaming Cost</span><span>₹{gamingTotal}</span></div>
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400"><span>F&B Accrued</span><span>₹{fnbTotal}</span></div>
-                            <div className={`flex justify-between text-xs font-black pt-1.5 border-t mt-1 ${isOverdue ? 'border-red-900/50 text-red-400' : 'border-[#1E293B] text-white'}`}>
-                              <span>Total Due</span><span className={isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}>₹{grandTotal}</span>
+                          {/* 🟢 CONSOLIDATED FINANCIAL BREAKDOWN (Massive Due Amount) */}
+                          <div className={`rounded-xl p-1.5 border ${isOverdue ? 'bg-red-950/30 border-red-900/50' : 'bg-[#05070A]/50 border-[#1E293B]'} flex flex-col justify-between shrink-0`}>
+                            <div className="space-y-0.5">
+                                {holdTotal > 0 && (
+                                  <div className="flex justify-between items-center text-[10px] font-bold text-orange-400 bg-orange-500/10 px-1 py-0.5 rounded">
+                                    <span>Hold ({holdNames})</span><span>₹{holdTotal}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 px-1">
+                                  <span>Gaming Cost</span><span className="text-white">₹{gamingTotal}</span>
+                                </div>
+                                
+                                {/* 🟢 INSTANT F&B ADD BUTTON */}
+                                <button onClick={() => openFnbForSession(activeSession)} className="w-full flex justify-between items-center text-[10px] font-bold text-gray-400 hover:text-[#00D0FF] hover:bg-[#00D0FF]/10 px-1 py-1 rounded transition-all cursor-pointer group">
+                                  <span className="flex items-center gap-1"><ShoppingCart size={12} className="group-hover:text-[#00D0FF]" /> Add F&B</span>
+                                  <span className="text-white group-hover:text-[#00D0FF]">₹{fnbTotal}</span>
+                                </button>
+                            </div>
+                            
+                            <div className={`flex justify-between items-center pt-1.5 mt-1 border-t ${isOverdue ? 'border-red-900/50' : 'border-[#1E293B]'}`}>
+                              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold px-1">Total Due</span>
+                              <span className={`text-xl sm:text-2xl font-black px-1 ${isOverdue ? 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' : 'text-[#00D0FF] drop-shadow-[0_0_8px_rgba(0,208,255,0.8)]'}`}>₹{grandTotal}</span>
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-1.5">
-                            <button onClick={() => { 
-                               const prevDue = balances[activeSession.customer] || 0;
-                               const totalWithKhata = grandTotal + prevDue;
-                               setManualTotal(totalWithKhata); 
-                               setPayMethod('Cash');
-                               setSplitCash(0);
-                               setUseKhata(false);
-                               setCheckoutCash('');
-                               setCheckoutUPI(''); 
-                               setUseMembership(false); 
-                               setSelectedMemberId(''); 
-                               setModal({ type: 'checkout', session: activeSession, grandTotal, holdTotal, holdNames, combinedFnbTotal, combinedGamingTotal, prevDue }); 
-                            }} className={`w-full text-black py-2.5 sm:py-2 rounded-lg font-black text-xs transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>Checkout & Pay</button>
+                          <div className="flex flex-col gap-1 shrink-0 mt-1">
+                            <button onClick={() => triggerCheckoutModalFromRef(activeSession)} className={`w-full text-black py-1.5 rounded-lg font-black text-[11px] transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>
+                               Checkout & Pay <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/20 border border-black/30 rounded text-[8px] font-mono">⇧{index + 1}</kbd>
+                            </button>
                             
-                            <div className="grid grid-cols-4 gap-1.5">
-                               <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
+                            <div className="grid grid-cols-3 gap-1">
+                               <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 py-1 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={12}/></button>
                                
-                               <button onClick={() => { setEditName(activeSession.customer); setDur(activeSession.duration); setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'edit_setup', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={14}/></button>
+                               <button onClick={() => { 
+                                   setEditName(activeSession.customer); 
+                                   setDur(activeSession.duration); 
+                                   setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); 
+                                   setEditTime24(`${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getMinutes()).padStart(2,'0')}`);
+                                   setModal({ type: 'edit_setup', session: activeSession, sys }); 
+                               }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details & Time"><Edit2 size={12}/></button>
 
-                               <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={14}/></button>
-                               
-                               <button onClick={() => {
-                                  const parsedCart: any[] = [];
-                                  if (activeSession.fnb_items && typeof activeSession.fnb_items === 'string') {
-                                      const cleanedStr = activeSession.fnb_items.replace(/\[\]\s*\|?/g, '').trim();
-                                      if (cleanedStr) {
-                                        const items = cleanedStr.split('|').map((s: string) => s.trim()).filter(Boolean);
-                                        items.forEach((itemStr: string) => {
-                                            let pureName = itemStr.replace(/^(\d+x\s*)+/, '').trim();
-                                            const multipliers = [...itemStr.matchAll(/(\d+)x/g)].map(m => parseInt(m[1]));
-                                            let qty = multipliers.length > 0 ? multipliers[multipliers.length - 1] : 1;
-                                            
-                                            const existing = parsedCart.find(p => p.name === pureName || p.id === pureName);
-                                            if (existing) {
-                                                existing.qty += qty;
-                                            } else {
-                                                let menuItem = cafeMenu.find(m => m.name.toLowerCase() === pureName.toLowerCase());
-                                                if(!menuItem) menuItem = cafeMenu.find(m => m.name.toLowerCase().replace(/[^a-z0-9]/g,'') === pureName.toLowerCase().replace(/[^a-z0-9]/g,''));
-                                                if(!menuItem) menuItem = cafeMenu.find(m => pureName.toLowerCase().includes(m.name.toLowerCase().split('/')[0]) || m.name.toLowerCase().includes(pureName.toLowerCase().split('/')[0]));
-                                                
-                                                if (menuItem) {
-                                                    parsedCart.push({ ...menuItem, qty, name: menuItem.name }); 
-                                                } else {
-                                                    parsedCart.push({ id: pureName, name: `⚠️ ${pureName} (Menu Error)`, price: 0, cost: 0, qty });
-                                                }
-                                            }
-                                        });
-                                      }
-                                  }
-                                  setCart(parsedCart);
-                                  setModal({ type: 'fnb', session: activeSession, originalCart: JSON.parse(JSON.stringify(parsedCart)) });
-                               }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 text-[10px] font-bold py-2 sm:py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit F&B"><Coffee size={14}/></button>
+                               <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={12}/></button>
                             </div>
 
-                            <button onClick={() => { setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
+                            <button onClick={() => { setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1 rounded-md text-[8px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1"><Plus size={8}/> Future Booking</button>
                           </div>
                       </div>
                     ) : (
-                      <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full py-6 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[130px]">
-                        <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-2 rounded-full transition-all"><Plus size={16} /></div>
-                        <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-xs tracking-wide">Check In / Reserve</span>
+                      <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full h-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[70px] flex-1">
+                        <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-2 rounded-full transition-all"><Plus size={14} /></div>
+                        <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-[10px] tracking-wide">Check In / Reserve</span>
                       </button>
                     )}
 
+                    {/* 🟢 UPCOMING BOOKINGS */}
                     {upcomingBookings.length > 0 && (
-                      <div className={`mt-3 pt-3 border-t border-[#1E293B] space-y-2`}>
+                      <div className={`mt-2 pt-2 border-t border-[#1E293B] space-y-1.5 shrink-0`}>
                         {!activeSession && <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest text-center">Upcoming</p>}
-                        <div className="space-y-1.5">
-                          {upcomingBookings.map(booking => (
-                            <div key={booking.id} className="relative bg-[#1A2235] border border-[#2D3748] rounded-lg p-2 flex flex-col gap-1.5 min-w-0">
-                               <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 rounded-l-lg"></div>
-                               <div className="flex justify-between items-center pl-1.5 min-w-0">
-                                  <span className="text-white text-[10px] font-bold truncate pr-1 flex-1 min-w-0"><User size={8} className="inline text-yellow-500 mb-0.5 mr-0.5"/>{booking.customer}</span>
-                                  <div className="flex items-center gap-1 text-yellow-500 text-[9px] font-black shrink-0">{booking.entry_time} <span className="text-gray-500 font-normal">|</span> {booking.duration}h</div>
-                               </div>
-                               <div className="flex gap-1.5 pl-1.5 shrink-0">
-                                  <button onClick={() => handleStartReservation(booking.id)} disabled={!!activeSession || isProcessing} className="flex-1 bg-yellow-500 text-black text-[9px] uppercase font-black py-1 rounded hover:bg-yellow-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all">Start</button>
-                                  <button onClick={() => handleCancelReservation(booking.id)} disabled={isProcessing} className="px-2.5 bg-[#0B0E14] text-gray-400 border border-[#2D3748] hover:text-red-500 hover:border-red-500 rounded transition-all shrink-0" title="Cancel Booking"><X size={10}/></button>
-                               </div>
-                            </div>
-                          ))}
-                        </div>
+                        {upcomingBookings.map(booking => (
+                          <div key={booking.id} className="relative bg-[#1A2235] border border-[#2D3748] rounded-lg p-2 flex flex-col gap-1.5 min-w-0">
+                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 rounded-l-lg"></div>
+                             <div className="flex justify-between items-center pl-1.5 min-w-0">
+                                <span className="text-white text-[10px] font-bold truncate pr-1 flex-1 min-w-0"><User size={8} className="inline text-yellow-500 mb-0.5 mr-0.5"/>{booking.customer}</span>
+                                <div className="flex items-center gap-1 text-yellow-500 text-[9px] font-black shrink-0">{booking.entry_time} <span className="text-gray-500 font-normal">|</span> {booking.duration}h</div>
+                             </div>
+                             <div className="flex gap-1.5 pl-1.5 shrink-0">
+                                <button onClick={() => handleStartReservation(booking.id)} disabled={!!activeSession || isProcessing} className="flex-1 bg-yellow-500 text-black text-[9px] uppercase font-black py-1 rounded hover:bg-yellow-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all">Start</button>
+                                <button onClick={() => handleCancelReservation(booking.id)} disabled={isProcessing} className="px-2.5 bg-[#0B0E14] text-gray-400 border border-[#2D3748] hover:text-red-500 hover:border-red-500 rounded transition-all shrink-0" title="Cancel Booking"><X size={10}/></button>
+                             </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -915,7 +1058,7 @@ export default function GamerarenaMasterERP() {
 
         {/* 🟢 MODAL OVERLAY: Strict Viewport Locking */}
         {modal && (
-          <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+          <div id="modal-backdrop" className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
             <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative overflow-hidden transition-all duration-200 w-full"
                  style={{ 
                     maxWidth: modal.type === 'fnb' ? '1100px' : '480px', 
@@ -930,15 +1073,14 @@ export default function GamerarenaMasterERP() {
                     {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
                     {modal.type === 'transfer' && `Transfer / Merge`}
                     {modal.type === 'extend' && `Adjust Session Time`}
-                    {modal.type === 'edit_setup' && `Edit Session Details`}
-                    {modal.type === 'edit_time' && `Edit Start Time`}
+                    {modal.type === 'edit_setup' && `Edit Details & Start Time`}
                     {modal.type === 'close_day' && `End of Day Report`}
                     {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Edit F&B Tab`)}
                     {modal.type === 'misc_income' && `Misc / Retail Income`}
                     {modal.type === 'members_hub' && `Memberships Hub`}
                     {modal.type === 'khata_hub' && `Pending Dues (Khata)`}
                   </h2>
-                  <button onClick={() => setModal(null)} className="p-2 bg-[#1A2235] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors shrink-0"><X size={16}/></button>
+                  <button onClick={() => setModal(null)} className="p-2 bg-[#1A2235] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors shrink-0" title="Close (Escape)"><X size={16}/></button>
               </div>
 
               {/* CONTENT AREA */}
@@ -1012,7 +1154,7 @@ export default function GamerarenaMasterERP() {
                          </div>
                       </div>
 
-                      {/* 🟢 RIGHT PANEL: Cart (Locked Height) */}
+                      {/* RIGHT PANEL: Cart */}
                       <div className="w-full md:w-80 lg:w-96 flex flex-col shrink-0 bg-[#0B0E14] h-full min-h-0">
                          <div className="flex-1 flex flex-col min-h-0 p-4">
                             <h3 className="font-black text-gray-500 text-[10px] uppercase mb-4 shrink-0">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
@@ -1155,6 +1297,7 @@ export default function GamerarenaMasterERP() {
                          );
                       })()}
                       
+                      {/* 🟢 CHECKOUT MODAL */}
                       {modal.type === 'checkout' && (() => {
                          const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
                          const targetCategory = `Membership - ${sysType}`;
@@ -1417,28 +1560,22 @@ export default function GamerarenaMasterERP() {
                           );
                       })()}
 
-                      {modal.type === 'edit_time' && (
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Corrected Start Time</label>
-                            <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={editTime24} onChange={e => setEditTime24(e.target.value)} />
-                          </div>
-                          <div className="pt-4 border-t border-[#1E293B]">
-                            <button onClick={handleEditTime} disabled={isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Save Time</button>
-                          </div>
-                        </div>
-                      )}
-
+                      {/* 🟢 MASTER EDIT DETAILS MODAL */}
                       {modal.type === 'edit_setup' && (
                         <div className="space-y-4">
                           <div className="bg-red-900/20 text-red-400 p-3 rounded-xl text-xs font-bold mb-2 border border-red-500/20">
-                             Use this only to correct setup mistakes. This will recalculate the entire bill based on these new values.
+                             Use this only to correct setup mistakes. Recalculates the entire bill automatically.
                           </div>
                           <div>
                             <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Player Name</label>
                             <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={editName} onChange={e => setEditName(e.target.value)} />
                           </div>
+                          
                           <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Corrected Start Time</label>
+                              <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={editTime24} onChange={e => setEditTime24(e.target.value)} />
+                            </div>
                             <div>
                               <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Total Duration</label>
                               <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
@@ -1447,18 +1584,18 @@ export default function GamerarenaMasterERP() {
                                 <button onClick={() => setDur(dur + 0.5)} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
                               </div>
                             </div>
-                            
-                            {modal.sys.type === 'PS5' && (
-                              <div>
-                                <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
-                                <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                  <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
-                                  <span className="font-bold text-sm">{extra} Extra</span>
-                                  <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
-                                </div>
-                              </div>
-                            )}
                           </div>
+                          
+                          {modal.sys.type === 'PS5' && (
+                            <div>
+                              <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                              <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                                <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-1 hover:text-[#00D0FF]"><Minus size={16}/></button>
+                                <span className="font-bold text-sm">{extra} Extra</span>
+                                <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-1 hover:text-[#00D0FF]"><Plus size={16}/></button>
+                              </div>
+                            </div>
+                          )}
                           <div className="pt-4 border-t border-[#1E293B]">
                             <div className="flex justify-between text-gray-400 mb-3 text-sm">
                               <span>Recalculated Cost:</span>
