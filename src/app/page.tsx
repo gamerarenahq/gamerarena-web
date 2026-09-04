@@ -267,6 +267,15 @@ export default function GamerarenaMasterERP() {
   }, []);
 
   useEffect(() => {
+    document.body.style.overflow = 'auto'; // 🟢 FIX: Allow native scroll on mobile body
+    document.documentElement.style.overflow = 'auto';
+    return () => { 
+        document.body.style.overflow = 'auto'; 
+        document.documentElement.style.overflow = 'auto'; 
+    };
+  }, []);
+
+  useEffect(() => {
     setCurrentTime(new Date());
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
     fetchSessions(); fetchInventory(); fetchBalances();
@@ -829,11 +838,11 @@ export default function GamerarenaMasterERP() {
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-      {/* 🟢 REMOVED 'fixed inset-0 overflow-hidden'. Allow native scrolling on mobile. */}
-      <div className="min-h-screen flex flex-col md:flex-row bg-[#05070A] text-white font-sans pb-16 md:pb-0">
+      {/* 🟢 Mobile Native Scrolling allowed, but perfectly locked on Desktop */}
+      <div className="min-h-screen flex flex-col md:flex-row bg-[#05070A] text-white font-sans overflow-hidden pb-16 md:pb-0">
         
         {/* DESKTOP SIDEBAR */}
-        <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4 fixed left-0 top-0 bottom-0">
+        <div className="hidden md:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4 fixed lg:static left-0 top-0 bottom-0 h-full">
           <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Live Floor"><Monitor size={20} /></div>
           <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
           <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
@@ -849,20 +858,22 @@ export default function GamerarenaMasterERP() {
         </div>
 
         {/* MAIN CONTENT AREA */}
-        <div className="flex-1 w-full max-w-[1600px] mx-auto p-2 sm:p-4 md:ml-16">
+        {/* 🟢 Desktop is purely overflow-hidden to stay locked. Mobile is overflow-y-auto to scroll naturally. */}
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-2 sm:p-3 flex flex-col h-full w-full">
+          <div className="max-w-[1600px] w-full lg:h-full mx-auto flex flex-col min-h-0">
             
             {/* 🟢 HEADER */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-4 w-full">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 mb-2 shrink-0 w-full min-w-0">
               <div className="flex justify-between items-center w-full xl:w-auto">
-                 <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1>
+                 <h1 className="text-xl font-black tracking-tight flex items-center gap-2">Gamerarena <span className="text-[#00D0FF]">POS</span></h1>
                  <div className="xl:hidden text-right bg-[#121824] px-3 py-1 rounded-lg border border-[#1E293B]">
                     <p className="text-gray-500 text-[8px] font-black uppercase">Pending</p>
                     <p className="text-[#FF754C] text-xs font-black">₹{totalFloorPending}</p>
                  </div>
               </div>
 
-              {/* Swipeable container for mobile */}
-              <div className="flex overflow-x-auto hide-scrollbar gap-2 items-center w-full xl:w-auto pb-1 sm:pb-0 snap-x">
+              {/* 🟢 Swipeable container for mobile */}
+              <div className="flex overflow-x-auto lg:overflow-visible hide-scrollbar gap-2 items-center w-full xl:w-auto pb-1 lg:pb-0 snap-x">
                 <button onClick={() => { setMemberReport(''); setModal({ type: 'members_hub' }); }} className="shrink-0 snap-start flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-purple-400 hover:text-purple-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><Users size={14} /> Members <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">M</kbd></button>
                 <button onClick={() => { setKhataReport(null); setModal({ type: 'khata_hub' }); }} className="shrink-0 snap-start flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-orange-400 hover:text-orange-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><Book size={14} /> Pending Dues <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">P</kbd></button>
                 <button id="btn-close-day" onClick={getEndOfDaySummary} disabled={isProcessing} className="shrink-0 snap-start flex items-center justify-center gap-1 bg-[#121824] border border-[#1E293B] hover:border-emerald-400 hover:text-emerald-400 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all shadow-sm whitespace-nowrap"><MoonStar size={14} /> Close Day <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono">C</kbd></button>
@@ -875,8 +886,8 @@ export default function GamerarenaMasterERP() {
               </div>
             </div>
             
-            {/* 🟢 SYSTEM CARDS GRID (Natural Scrolling) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+            {/* 🟢 SYSTEM CARDS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 w-full flex-1 min-h-0 lg:overflow-hidden overflow-visible custom-scrollbar">
               {SYSTEMS.map((sys, index) => {
                 const activeSession = activeOrReserved.find(a => a.system === sys.id && a.status === 'Active');
                 const upcomingBookings = activeOrReserved.filter(a => a.system === sys.id && a.status === 'Reserved').sort((a,b) => parse12HourToDate(a.entry_time, a.date).getTime() - parse12HourToDate(b.entry_time, b.date).getTime());
@@ -905,69 +916,70 @@ export default function GamerarenaMasterERP() {
                 const userDue = activeSession ? (balances[activeSession.customer] || 0) : 0;
 
                 return (
-                  <div key={sys.id} className={`flex flex-col justify-between p-3 sm:p-4 rounded-2xl border transition-all duration-300 ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
+                  // 🟢 Cards are locked to h-full on desktop, but allow themselves to grow naturally on mobile
+                  <div key={sys.id} className={`flex flex-col justify-between p-2.5 rounded-xl border transition-all duration-300 min-h-[220px] h-auto lg:min-h-0 lg:h-full lg:overflow-y-auto custom-scrollbar ${activeSession ? (isOverdue ? 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-[#00D0FF]/40 bg-[#00D0FF]/5') : 'border-[#1E293B] bg-[#0B0E14] hover:border-[#2D3748]'}`}>
                     
-                    <div className="flex justify-between items-center mb-2 shrink-0">
+                    <div className="flex justify-between items-center mb-1 shrink-0">
                       <div className="flex items-center gap-2">
-                        <div className={`p-2 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}><sys.icon size={16}/></div>
-                        <h3 className={`text-base sm:text-lg font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>
-                           {sys.id} <kbd className="hidden lg:inline-block ml-1 px-1.5 py-0.5 bg-black/40 border border-[#2D3748] rounded text-[10px] text-gray-500 font-mono align-middle">{index + 1}</kbd>
+                        <div className={`p-1.5 rounded-lg ${activeSession ? (isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-[#00D0FF]/20 text-[#00D0FF]') : 'bg-[#1A2235] text-gray-500'}`}><sys.icon size={14}/></div>
+                        <h3 className={`text-base font-black tracking-wide ${activeSession ? 'text-white' : 'text-gray-400'}`}>
+                           {sys.id} <kbd className="hidden lg:inline-block ml-1 px-1 py-0 bg-black/40 border border-[#2D3748] rounded text-[9px] text-gray-500 font-mono align-middle">{index + 1}</kbd>
                         </h3>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest shrink-0 ${activeSession ? (isOverdue ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF]/30") : "bg-[#1A2235] text-gray-500 border border-[#2D3748]"}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest shrink-0 ${activeSession ? (isOverdue ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF]/30") : "bg-[#1A2235] text-gray-500 border border-[#2D3748]"}`}>
                         {activeSession ? "ACTIVE" : "FREE"}
                       </span>
                     </div>
 
                     {activeSession ? (
-                      <div className="flex flex-col gap-3">
-                          <div className="flex justify-between items-start gap-2">
-                             <div className="min-w-0 flex-1">
-                                <p className="font-black text-white text-sm sm:text-base flex items-center gap-1.5">
+                      <div className="flex flex-col gap-2 flex-1 min-h-0">
+                          <div className="flex justify-between items-start gap-2 min-w-0 shrink-0">
+                             <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                <p className="font-black text-white text-sm flex items-center gap-1.5">
                                   <User size={12} className={`shrink-0 ${isOverdue ? 'text-red-400' : 'text-[#00D0FF]'}`}/> 
                                   <span className="truncate pr-1">{activeSession.customer}</span>
-                                  {userDue > 0 && <span className="bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-widest font-black shrink-0 border border-orange-500/30">Due: ₹{userDue}</span>}
+                                  {userDue > 0 && <span className="bg-orange-500/20 text-orange-400 px-1 py-0.5 rounded text-[7px] uppercase tracking-widest font-black shrink-0 border border-orange-500/30">Due: ₹{userDue}</span>}
                                 </p>
-                                <div className="flex items-center gap-1.5 text-gray-400 text-xs sm:text-sm font-bold mt-1 shrink-0">
+                                <div className="flex items-center gap-1.5 text-gray-400 text-xs font-bold mt-1 shrink-0">
                                     <Clock size={12}/> {activeSession.entry_time} <span className="text-[#1E293B]">|</span> {activeSession.duration} Hrs
                                 </div>
                              </div>
                              
-                             <div className={`text-base sm:text-xl font-black bg-black/60 px-3 py-1.5 rounded-xl border shadow-sm tracking-wide whitespace-nowrap shrink-0 ${timerInfo?.color} ${isOverdue ? 'border-red-500/50' : 'border-[#00D0FF]/40'}`}>
+                             <div className={`text-base font-black bg-black/60 px-2.5 py-1.5 rounded-lg border shadow-sm tracking-wide whitespace-nowrap shrink-0 ${timerInfo?.color} ${isOverdue ? 'border-red-500/50' : 'border-[#00D0FF]/40'}`}>
                                  {timerInfo?.text}
                              </div>
                           </div>
                           
-                          <div className={`rounded-xl p-2 sm:p-3 border ${isOverdue ? 'bg-red-950/30 border-red-900/50' : 'bg-[#05070A]/50 border-[#1E293B]'} flex flex-col justify-between`}>
-                            <div className="space-y-1">
+                          <div className={`rounded-xl p-1.5 border ${isOverdue ? 'bg-red-950/30 border-red-900/50' : 'bg-[#05070A]/50 border-[#1E293B]'} flex flex-col justify-between shrink-0`}>
+                            <div className="space-y-0.5">
                                 {holdTotal > 0 && (
-                                  <div className="flex justify-between items-center text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-1 rounded-lg">
+                                  <div className="flex justify-between items-center text-[10px] font-bold text-orange-400 bg-orange-500/10 px-1 py-0.5 rounded">
                                     <span>Hold ({holdNames})</span><span>₹{holdTotal}</span>
                                   </div>
                                 )}
-                                <div className="flex justify-between items-center text-xs font-bold text-gray-400 px-2">
+                                <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 px-1">
                                   <span>Gaming Cost</span><span className="text-white">₹{gamingTotal}</span>
                                 </div>
                                 
-                                <button onClick={() => openFnbForSession(activeSession)} className="w-full flex justify-between items-center text-xs font-bold text-gray-400 hover:text-[#00D0FF] hover:bg-[#00D0FF]/10 px-2 py-1.5 rounded-lg transition-all cursor-pointer group">
-                                  <span className="flex items-center gap-1.5"><ShoppingCart size={14} className="group-hover:text-[#00D0FF]" /> Add F&B</span>
+                                <button onClick={() => openFnbForSession(activeSession)} className="w-full flex justify-between items-center text-[10px] font-bold text-gray-400 hover:text-[#00D0FF] hover:bg-[#00D0FF]/10 px-1 py-1 rounded transition-all cursor-pointer group">
+                                  <span className="flex items-center gap-1"><ShoppingCart size={12} className="group-hover:text-[#00D0FF]" /> Add F&B</span>
                                   <span className="text-white group-hover:text-[#00D0FF]">₹{fnbTotal}</span>
                                 </button>
                             </div>
                             
-                            <div className={`flex justify-between items-center pt-2 mt-2 border-t ${isOverdue ? 'border-red-900/50' : 'border-[#1E293B]'}`}>
-                              <span className="text-[11px] uppercase tracking-widest text-gray-500 font-bold px-2">Total Due</span>
-                              <span className={`text-2xl sm:text-3xl font-black px-2 ${isOverdue ? 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' : 'text-[#00D0FF] drop-shadow-[0_0_8px_rgba(0,208,255,0.8)]'}`}>₹{grandTotal}</span>
+                            <div className={`flex justify-between items-center pt-1 mt-1 border-t ${isOverdue ? 'border-red-900/50' : 'border-[#1E293B]'}`}>
+                              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold px-1">Total Due</span>
+                              <span className={`text-xl font-black px-1 ${isOverdue ? 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' : 'text-[#00D0FF] drop-shadow-[0_0_8px_rgba(0,208,255,0.8)]'}`}>₹{grandTotal}</span>
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-2 mt-1">
-                            <button onClick={() => triggerCheckoutModalFromRef(activeSession)} className={`w-full text-black py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>
-                               Checkout & Pay <kbd className="hidden lg:inline-block ml-1 px-1.5 py-0.5 bg-black/20 border border-black/30 rounded text-[9px] font-mono">⇧{index + 1}</kbd>
+                          <div className="flex flex-col gap-1.5 shrink-0 mt-auto">
+                            <button onClick={() => triggerCheckoutModalFromRef(activeSession)} className={`w-full text-black py-1.5 rounded-lg font-black text-[11px] transition-all ${isOverdue ? 'bg-red-500 hover:bg-white' : 'bg-[#00D0FF] hover:bg-white'}`}>
+                               Checkout & Pay <kbd className="hidden lg:inline-block ml-1 px-1 py-0.5 bg-black/20 border border-black/30 rounded text-[8px] font-mono">⇧{index + 1}</kbd>
                             </button>
                             
-                            <div className="grid grid-cols-3 gap-2">
-                               <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 py-2 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={16}/></button>
+                            <div className="grid grid-cols-3 gap-1.5">
+                               <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 py-1.5 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
                                
                                <button onClick={() => { 
                                    setEditName(activeSession.customer); 
@@ -975,34 +987,32 @@ export default function GamerarenaMasterERP() {
                                    setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); 
                                    setEditTime24(`${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getMinutes()).padStart(2,'0')}`);
                                    setModal({ type: 'edit_setup', session: activeSession, sys }); 
-                               }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-2 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={16}/></button>
+                               }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1.5 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={14}/></button>
 
-                               <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-2 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={16}/></button>
+                               <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1.5 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={14}/></button>
                             </div>
-
-                            <button onClick={() => { setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1.5 mt-1"><Plus size={10}/> Future Booking</button>
                           </div>
                       </div>
                     ) : (
-                      <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full h-full flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[150px] py-10">
-                        <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-3 rounded-full transition-all"><Plus size={20} /></div>
+                      <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full h-full flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[120px] lg:min-h-0 flex-1">
+                        <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-3 rounded-full transition-all"><Plus size={18} /></div>
                         <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-xs tracking-wide">Check In / Reserve</span>
                       </button>
                     )}
 
                     {/* 🟢 UPCOMING BOOKINGS */}
                     {upcomingBookings.length > 0 && (
-                      <div className={`mt-3 pt-3 border-t border-[#1E293B] space-y-2`}>
+                      <div className={`mt-2 pt-2 border-t border-[#1E293B] space-y-1.5 shrink-0`}>
                         {!activeSession && <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center">Upcoming Bookings</p>}
                         {upcomingBookings.map(booking => (
                           <div key={booking.id} className="relative bg-[#1A2235] border border-[#2D3748] rounded-xl p-2.5 flex flex-col gap-2 min-w-0">
                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 rounded-l-xl"></div>
                              <div className="flex justify-between items-center pl-2 min-w-0">
-                                <span className="text-white text-xs font-bold truncate pr-1 flex-1 min-w-0"><User size={10} className="inline text-yellow-500 mb-0.5 mr-1"/>{booking.customer}</span>
-                                <div className="flex items-center gap-1 text-yellow-500 text-[10px] font-black shrink-0">{booking.entry_time} <span className="text-gray-500 font-normal">|</span> {booking.duration}h</div>
+                                <span className="text-white text-[10px] font-bold truncate pr-1 flex-1 min-w-0"><User size={10} className="inline text-yellow-500 mb-0.5 mr-1"/>{booking.customer}</span>
+                                <div className="flex items-center gap-1 text-yellow-500 text-[9px] font-black shrink-0">{booking.entry_time} <span className="text-gray-500 font-normal">|</span> {booking.duration}h</div>
                              </div>
                              <div className="flex gap-2 pl-2 shrink-0">
-                                <button onClick={() => handleStartReservation(booking.id)} disabled={!!activeSession || isProcessing} className="flex-1 bg-yellow-500 text-black text-[10px] uppercase font-black py-1.5 rounded-lg hover:bg-yellow-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all">Start Now</button>
+                                <button onClick={() => handleStartReservation(booking.id)} disabled={!!activeSession || isProcessing} className="flex-1 bg-yellow-500 text-black text-[9px] uppercase font-black py-1.5 rounded-lg hover:bg-yellow-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all">Start</button>
                                 <button onClick={() => handleCancelReservation(booking.id)} disabled={isProcessing} className="px-3 bg-[#0B0E14] text-gray-400 border border-[#2D3748] hover:text-red-500 hover:border-red-500 rounded-lg transition-all shrink-0" title="Cancel Booking"><X size={12}/></button>
                              </div>
                           </div>
@@ -1016,11 +1026,15 @@ export default function GamerarenaMasterERP() {
           </div>
         </div>
 
-        {/* 🟢 SAFE MOBILE SCROLLING MODAL OVERLAY */}
+        {/* 🟢 MODAL OVERLAY: Strict Mobile Responsive Constraints */}
         {modal && (
-          <div id="modal-backdrop" className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-2 sm:p-5 overflow-hidden">
+          <div id="modal-backdrop" className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
             <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative w-full overflow-hidden transition-all duration-200"
-                 style={{ maxWidth: modal.type === 'fnb' ? '1100px' : '480px', maxHeight: '90vh' }}>
+                 style={{ 
+                    maxWidth: modal.type === 'fnb' ? '1100px' : '480px', 
+                    height: modal.type === 'fnb' ? '90vh' : 'auto', 
+                    maxHeight: '90vh' 
+                 }}>
 
               {/* MODAL HEADER */}
               <div className="flex justify-between items-center p-4 sm:p-5 border-b border-[#1E293B] shrink-0 bg-[#0B0E14] w-full min-w-0">
@@ -1040,14 +1054,14 @@ export default function GamerarenaMasterERP() {
               </div>
 
               {/* CONTENT AREA */}
-              <div className="flex-1 overflow-hidden flex flex-col w-full">
+              <div className="flex-1 overflow-hidden flex flex-col w-full min-h-0">
                 
                 {/* 🟢 MOBILE-SAFE F&B MODAL (Vertical Stack on Phones, Side-by-Side on Desktop) */}
                 {modal.type === 'fnb' ? (
-                   <div className="flex flex-col md:flex-row h-full w-full bg-[#05070A]">
+                   <div className="flex flex-col lg:flex-row h-full w-full bg-[#05070A]">
                       
-                      {/* LEFT PANEL: Menu (Scrolls naturally) */}
-                      <div className="flex-1 flex flex-col min-h-0 border-b md:border-b-0 md:border-r border-[#1E293B] overflow-hidden">
+                      {/* LEFT PANEL: Menu (Scrolls naturally on mobile half) */}
+                      <div className="flex-1 flex flex-col min-h-[40vh] lg:min-h-0 border-b lg:border-b-0 lg:border-r border-[#1E293B] overflow-hidden">
                          <div className="p-3 sm:p-4 border-b border-[#1E293B] bg-[#121824] shrink-0 w-full overflow-hidden">
                             {!modal.isWalkin && (
                               <div className="flex justify-between items-center mb-3 sm:mb-4 min-w-0">
@@ -1063,7 +1077,7 @@ export default function GamerarenaMasterERP() {
                          </div>
                          
                          <div className="flex-1 overflow-y-auto w-full p-3 sm:p-4 custom-scrollbar bg-[#0B0E14]">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 w-full pb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 w-full pb-4">
                                {cafeMenu
                                   .filter(item => item.category === fnbCategory)
                                   .sort((a, b) => {
@@ -1110,7 +1124,7 @@ export default function GamerarenaMasterERP() {
                       </div>
 
                       {/* RIGHT PANEL: Cart & Actions (Permanently locked to bottom on mobile) */}
-                      <div className="w-full md:w-80 lg:w-96 flex flex-col shrink-0 bg-[#0B0E14] h-[45%] md:h-full border-t md:border-t-0 border-[#1E293B]">
+                      <div className="w-full lg:w-80 xl:w-96 flex flex-col shrink-0 bg-[#0B0E14] h-[45%] lg:h-full border-t lg:border-t-0 border-[#1E293B]">
                          <div className="flex-1 flex flex-col min-h-0 p-3 sm:p-4">
                             <h3 className="font-black text-gray-500 text-[10px] uppercase mb-3 shrink-0">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
                             {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4 shrink-0">No items added yet.</p> : (
@@ -1252,6 +1266,7 @@ export default function GamerarenaMasterERP() {
                          );
                       })()}
                       
+                      {/* 🟢 CHECKOUT MODAL */}
                       {modal.type === 'checkout' && (() => {
                          const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
                          const targetCategory = `Membership - ${sysType}`;
