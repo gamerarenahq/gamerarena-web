@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable */
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
@@ -135,6 +136,7 @@ export default function GamerarenaMasterERP() {
   const [memberReport, setMemberReport] = useState('');
 
   const notifiedRef = useRef(new Set<number>());
+
   const stateRef = useRef({ modal, isProcessing });
   const sessionsRef = useRef(sessions);
   const balancesRef = useRef(balances);
@@ -277,7 +279,6 @@ export default function GamerarenaMasterERP() {
     setCurrentTime(new Date());
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
     fetchSessions(); fetchInventory(); fetchBalances();
-    // 🟢 VERCEL FIX: Removed setTick tracking
     const refreshInterval = setInterval(() => { fetchSessions(); fetchBalances(); }, 30000);
     return () => { clearInterval(clockInterval); clearInterval(refreshInterval); };
   }, []);
@@ -843,17 +844,17 @@ export default function GamerarenaMasterERP() {
         {/* DESKTOP SIDEBAR */}
         <div className="hidden lg:flex w-16 bg-[#0B0E14] border-r border-[#1E293B] flex-col items-center py-4 shrink-0 z-10 gap-4 fixed left-0 top-0 bottom-0 h-full">
           <div className="p-3 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]" title="Live Floor"><Monitor size={20} /></div>
-          <a href="/vault/inventory" className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></a>
-          <a href="/vault" className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></a>
-          <a href="/vault/ledger" className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></a>
+          <button onClick={() => window.location.href = '/vault/inventory'} className="p-3 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] hover:border-[#00D0FF] border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Inventory"><Package size={20} /></button>
+          <button onClick={() => window.location.href = '/vault'} className="p-3 bg-[#1A2235] text-gray-400 hover:text-orange-500 hover:border-orange-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Master Vault"><BarChart3 size={20} /></button>
+          <button onClick={() => window.location.href = '/vault/ledger'} className="p-3 bg-[#1A2235] text-gray-400 hover:text-emerald-500 hover:border-emerald-500 border border-[#2D3748] rounded-xl transition-all shadow-sm" title="Finance"><Building2 size={20} /></button>
         </div>
 
         {/* MOBILE BOTTOM NAVIGATION BAR */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0B0E14] border-t border-[#1E293B] flex items-center justify-around z-40 px-2 shadow-2xl">
           <div className="p-2.5 bg-[#00D0FF]/20 text-[#00D0FF] border border-[#00D0FF] rounded-xl transition-all" title="Live Floor"><Monitor size={20} /></div>
-          <a href="/vault/inventory" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Inventory"><Package size={20} /></a>
-          <a href="/vault" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-orange-500 rounded-xl border border-[#2D3748]" title="Master Vault"><BarChart3 size={20} /></a>
-          <a href="/vault/ledger" className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-emerald-500 rounded-xl border border-[#2D3748]" title="Finance"><Building2 size={20} /></a>
+          <button onClick={() => window.location.href = '/vault/inventory'} className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-[#00D0FF] rounded-xl border border-[#2D3748]" title="Inventory"><Package size={20} /></button>
+          <button onClick={() => window.location.href = '/vault'} className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-orange-500 rounded-xl border border-[#2D3748]" title="Master Vault"><BarChart3 size={20} /></button>
+          <button onClick={() => window.location.href = '/vault/ledger'} className="p-2.5 bg-[#1A2235] text-gray-400 hover:text-emerald-500 rounded-xl border border-[#2D3748]" title="Finance"><Building2 size={20} /></button>
         </div>
 
         {/* MAIN CONTENT AREA */}
@@ -957,15 +958,15 @@ export default function GamerarenaMasterERP() {
                                   <span>Gaming Cost</span><span className="text-white">₹{gamingTotal}</span>
                                 </div>
                                 
-                                <button onClick={() => openFnbForSession(activeSession)} className="w-full flex justify-between items-center text-[11px] font-bold text-gray-400 hover:text-[#00D0FF] hover:bg-[#00D0FF]/10 px-1 py-1 rounded transition-all cursor-pointer group">
-                                  <span className="flex items-center gap-1"><ShoppingCart size={12} className="group-hover:text-[#00D0FF]" /> Add F&B</span>
+                                <button onClick={() => openFnbForSession(activeSession)} className="w-full flex justify-between items-center text-[11px] font-bold text-gray-400 hover:text-[#00D0FF] hover:bg-[#00D0FF]/10 px-1 py-1.5 rounded-lg transition-all cursor-pointer group">
+                                  <span className="flex items-center gap-1.5"><ShoppingCart size={14} className="group-hover:text-[#00D0FF]" /> Add F&B</span>
                                   <span className="text-white group-hover:text-[#00D0FF]">₹{fnbTotal}</span>
                                 </button>
                             </div>
                             
                             <div className={`flex justify-between items-center pt-2 mt-2 border-t ${isOverdue ? 'border-red-900/50' : 'border-[#1E293B]'}`}>
                               <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold px-1">Total Due</span>
-                              <span className={`text-xl font-black px-1 ${isOverdue ? 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' : 'text-[#00D0FF] drop-shadow-[0_0_8px_rgba(0,208,255,0.8)]'}`}>₹{grandTotal}</span>
+                              <span className={`text-2xl sm:text-3xl font-black px-1 ${isOverdue ? 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' : 'text-[#00D0FF] drop-shadow-[0_0_8px_rgba(0,208,255,0.8)]'}`}>₹{grandTotal}</span>
                             </div>
                           </div>
 
@@ -975,7 +976,7 @@ export default function GamerarenaMasterERP() {
                             </button>
                             
                             <div className="grid grid-cols-3 gap-2">
-                               <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
+                               <button onClick={() => { setTransferTargetSysId(''); setMigrateDur(1); setMigrateExtra(0); setModal({ type: 'transfer', session: activeSession }); }} className="bg-[#1A2235] hover:bg-white hover:text-black text-gray-400 py-1.5 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Transfer"><ArrowRightLeft size={14}/></button>
                                
                                <button onClick={() => { 
                                    setEditName(activeSession.customer); 
@@ -983,16 +984,16 @@ export default function GamerarenaMasterERP() {
                                    setExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); 
                                    setEditTime24(`${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getHours()).padStart(2,'0')}:${String(parse12HourToDate(activeSession.entry_time, activeSession.date).getMinutes()).padStart(2,'0')}`);
                                    setModal({ type: 'edit_setup', session: activeSession, sys }); 
-                               }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={14}/></button>
+                               }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1.5 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Edit Details"><Edit2 size={14}/></button>
 
-                               <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1.5 rounded-lg border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={14}/></button>
+                               <button onClick={() => { setExtendDur(0.5); setEditExtra(getExtraFromTotal(sys.type, activeSession.duration, Number(activeSession.total))); setModal({ type: 'extend', session: activeSession, sys }); }} className="bg-[#1A2235] hover:text-[#00D0FF] hover:border-[#00D0FF] text-gray-400 py-1.5 rounded-md border border-[#2D3748] transition-all flex justify-center items-center" title="Adjust Time"><Clock size={14}/></button>
                             </div>
 
                             <button onClick={() => { setIsBookingMode(true); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: true }); }} className="w-full py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 transition-all flex items-center justify-center gap-1.5 mt-1"><Plus size={10}/> Future Booking</button>
                           </div>
                       </div>
                     ) : (
-                      <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[150px] py-10 lg:flex-1">
+                      <button onClick={() => { const n = new Date(); setTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`); setIsBookingMode(false); setName(''); setDur(1); setExtra(0); setModal({ type: 'checkin', sys, hasActive: false }); }} className="group w-full h-full flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#2D3748] hover:border-[#00D0FF]/50 hover:bg-[#00D0FF]/5 transition-all min-h-[150px] py-10 lg:flex-1">
                         <div className="bg-[#1A2235] group-hover:bg-[#00D0FF] text-gray-500 group-hover:text-black p-3 rounded-full transition-all"><Plus size={20} /></div>
                         <span className="text-gray-500 group-hover:text-[#00D0FF] font-bold text-xs tracking-wide">Check In / Reserve</span>
                       </button>
@@ -1006,11 +1007,11 @@ export default function GamerarenaMasterERP() {
                           <div key={booking.id} className="relative bg-[#1A2235] border border-[#2D3748] rounded-xl p-2.5 flex flex-col gap-2 min-w-0">
                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 rounded-l-xl"></div>
                              <div className="flex justify-between items-center pl-2 min-w-0">
-                                <span className="text-white text-xs font-bold truncate pr-1 flex-1 min-w-0"><User size={10} className="inline text-yellow-500 mb-0.5 mr-1"/>{booking.customer}</span>
+                                <span className="text-white text-[11px] font-bold truncate pr-1 flex-1 min-w-0"><User size={10} className="inline text-yellow-500 mb-0.5 mr-1"/>{booking.customer}</span>
                                 <div className="flex items-center gap-1 text-yellow-500 text-[10px] font-black shrink-0">{booking.entry_time} <span className="text-gray-500 font-normal">|</span> {booking.duration}h</div>
                              </div>
                              <div className="flex gap-2 pl-2 shrink-0">
-                                <button onClick={() => handleStartReservation(booking.id)} disabled={!!activeSession || isProcessing} className="flex-1 bg-yellow-500 text-black text-[10px] uppercase font-black py-1.5 rounded-lg hover:bg-yellow-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all">Start Now</button>
+                                <button onClick={() => handleStartReservation(booking.id)} disabled={!!activeSession || isProcessing} className="flex-1 bg-yellow-500 text-black text-[10px] uppercase font-black py-1.5 rounded-lg hover:bg-yellow-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all">Start</button>
                                 <button onClick={() => handleCancelReservation(booking.id)} disabled={isProcessing} className="px-3 bg-[#0B0E14] text-gray-400 border border-[#2D3748] hover:text-red-500 hover:border-red-500 rounded-lg transition-all shrink-0" title="Cancel Booking"><X size={12}/></button>
                              </div>
                           </div>
@@ -1024,658 +1025,663 @@ export default function GamerarenaMasterERP() {
           </div>
         </div>
 
-        {/* 🟢 SAFE MODAL OVERLAY */}
+        {/* 🟢 SAFE MODAL OVERLAY (Natively Scrollable on Mobile) */}
         {modal && (
-          <div id="modal-backdrop" className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-2 sm:p-5 overflow-hidden">
-            <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative w-full overflow-hidden transition-all duration-200"
-                 style={{ maxWidth: modal.type === 'fnb' ? '1100px' : '480px', maxHeight: '90vh' }}>
+          <div id="modal-backdrop" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto p-4 sm:p-6">
+            <div className="min-h-full flex items-center justify-center">
+              <div className="bg-[#121824] border border-[#1E293B] rounded-2xl flex flex-col shadow-2xl relative w-full transition-all duration-200"
+                   style={{ maxWidth: modal.type === 'fnb' ? '1100px' : '480px' }}>
 
-              {/* MODAL HEADER */}
-              <div className="flex justify-between items-center p-4 sm:p-5 border-b border-[#1E293B] shrink-0 bg-[#0B0E14] w-full min-w-0">
-                  <h2 className="text-lg sm:text-xl font-black text-white truncate pr-2 flex-1">
-                    {modal.type === 'checkin' && `Setup ${modal.sys.id}`}
-                    {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
-                    {modal.type === 'transfer' && `Transfer / Merge`}
-                    {modal.type === 'extend' && `Adjust Session Time`}
-                    {modal.type === 'edit_setup' && `Edit Details & Start Time`}
-                    {modal.type === 'close_day' && `End of Day Report`}
-                    {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Edit F&B Tab`)}
-                    {modal.type === 'misc_income' && `Misc / Retail Income`}
-                    {modal.type === 'members_hub' && `Memberships Hub`}
-                    {modal.type === 'khata_hub' && `Pending Dues (Khata)`}
-                  </h2>
-                  <button onClick={() => setModal(null)} className="p-2 bg-[#1A2235] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors shrink-0" title="Close (Escape)"><X size={16}/></button>
-              </div>
+                {/* MODAL HEADER */}
+                <div className="flex justify-between items-center p-4 sm:p-5 border-b border-[#1E293B] shrink-0 bg-[#0B0E14] w-full min-w-0 rounded-t-2xl">
+                    <h2 className="text-lg sm:text-xl font-black text-white truncate pr-2 flex-1">
+                      {modal.type === 'checkin' && `Setup ${modal.sys.id}`}
+                      {modal.type === 'checkout' && `Checkout ${modal.session.system}`}
+                      {modal.type === 'transfer' && `Transfer / Merge`}
+                      {modal.type === 'extend' && `Adjust Session Time`}
+                      {modal.type === 'edit_setup' && `Edit Details & Start Time`}
+                      {modal.type === 'close_day' && `End of Day Report`}
+                      {modal.type === 'fnb' && (modal.isWalkin ? `Direct F&B Sale` : `Edit F&B Tab`)}
+                      {modal.type === 'misc_income' && `Misc / Retail Income`}
+                      {modal.type === 'members_hub' && `Memberships Hub`}
+                      {modal.type === 'khata_hub' && `Pending Dues (Khata)`}
+                    </h2>
+                    <button onClick={() => setModal(null)} className="p-2 bg-[#1A2235] rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors shrink-0" title="Close (Escape)"><X size={16}/></button>
+                </div>
 
-              {/* CONTENT AREA */}
-              <div className="flex-1 overflow-hidden flex flex-col w-full min-h-0">
-                
-                {modal.type === 'fnb' ? (
-                   <div className="flex flex-col lg:flex-row h-full w-full bg-[#05070A]">
-                      
-                      {/* LEFT PANEL: Menu */}
-                      <div className="flex-[1.5] lg:flex-1 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-[#1E293B] overflow-hidden">
-                         <div className="p-3 sm:p-4 border-b border-[#1E293B] bg-[#121824] shrink-0 w-full overflow-hidden">
-                            {!modal.isWalkin && (
-                              <div className="flex justify-between items-center mb-3 sm:mb-4 min-w-0">
-                                 <span className="text-xs text-gray-400 truncate pr-2">Editing Tab for: <span className="text-white font-bold">{modal.session?.customer}</span></span>
-                                 <button onClick={() => setCart(cart.filter(c => c.price > 0))} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 flex items-center gap-1 shrink-0"><Trash2 size={12}/> Clear Ghosts</button>
+                {/* CONTENT AREA */}
+                <div className="flex-1 flex flex-col w-full">
+                  
+                  {/* 🟢 MOBILE-SAFE F&B MODAL (Vertical Stack) */}
+                  {modal.type === 'fnb' ? (
+                     <div className="flex flex-col lg:flex-row w-full bg-[#05070A] rounded-b-2xl overflow-hidden">
+                        
+                        {/* LEFT PANEL: Menu */}
+                        <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-[#1E293B]">
+                           
+                           <div className="p-4 border-b border-[#1E293B] bg-[#121824] shrink-0 w-full overflow-hidden">
+                              {!modal.isWalkin && (
+                                <div className="flex justify-between items-center mb-3 sm:mb-4 min-w-0">
+                                   <span className="text-xs text-gray-400 truncate pr-2">Editing Tab for: <span className="text-white font-bold">{modal.session?.customer}</span></span>
+                                   <button onClick={() => setCart(cart.filter(c => c.price > 0))} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 flex items-center gap-1 shrink-0"><Trash2 size={12}/> Clear Ghosts</button>
+                                </div>
+                              )}
+                              <div className="flex overflow-x-auto hide-scrollbar snap-x gap-2 w-full pb-1">
+                                 {categories.map(cat => (
+                                    <button key={cat} onClick={() => setFnbCategory(cat)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 snap-start ${fnbCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
+                                 ))}
                               </div>
-                            )}
-                            <div className="flex overflow-x-auto hide-scrollbar snap-x gap-2 w-full pb-1">
-                               {categories.map(cat => (
-                                  <button key={cat} onClick={() => setFnbCategory(cat)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 snap-start ${fnbCategory === cat ? 'bg-[#00D0FF] text-black' : 'bg-[#1A2235] text-gray-400 hover:text-white border border-[#2D3748]'}`}>{cat}</button>
-                               ))}
-                            </div>
-                         </div>
-                         
-                         <div className="flex-1 overflow-y-auto w-full p-3 sm:p-4 custom-scrollbar bg-[#0B0E14]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 w-full pb-4">
-                               {cafeMenu
-                                  .filter(item => item.category === fnbCategory)
-                                  .sort((a, b) => {
-                                     const aOrig = (modal?.originalCart || []).find((c: any) => c.id === a.id)?.qty || 0;
-                                     const bOrig = (modal?.originalCart || []).find((c: any) => c.id === b.id)?.qty || 0;
-                                     const aMax = (a.stock !== undefined && a.stock !== null) ? aOrig + (a.stock as number) : Infinity;
-                                     const bMax = (b.stock !== undefined && b.stock !== null) ? bOrig + (b.stock as number) : Infinity;
-                                     const aOut = aMax === 0 ? 1 : 0;
-                                     const bOut = bMax === 0 ? 1 : 0;
-                                     if (aOut !== bOut) return aOut - bOut;
-                                     return a.name.localeCompare(b.name);
-                                  })
-                                  .map(item => {
-                                   const inCart = cart.find(c => c.id === item.id);
-                                   const qty = inCart ? inCart.qty : 0;
-                                   const originalItem = (modal?.originalCart || []).find((c: any) => c.id === item.id);
-                                   const originalQty = originalItem ? originalItem.qty : 0;
-                                   const hasStockLimit = item.stock !== undefined && item.stock !== null;
-                                   const maxAllowedQty = hasStockLimit ? originalQty + (item.stock as number) : Infinity;
-                                   const isOutOfStock = hasStockLimit && maxAllowedQty === 0;
-                                   const isAtMaxCapacity = hasStockLimit && qty >= maxAllowedQty;
+                           </div>
+                           
+                           <div className="w-full p-4 lg:max-h-[70vh] lg:overflow-y-auto custom-scrollbar bg-[#0B0E14]">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full pb-4">
+                                 {cafeMenu
+                                    .filter(item => item.category === fnbCategory)
+                                    .sort((a, b) => {
+                                       const aOrig = (modal?.originalCart || []).find((c: any) => c.id === a.id)?.qty || 0;
+                                       const bOrig = (modal?.originalCart || []).find((c: any) => c.id === b.id)?.qty || 0;
+                                       const aMax = (a.stock !== undefined && a.stock !== null) ? aOrig + (a.stock as number) : Infinity;
+                                       const bMax = (b.stock !== undefined && b.stock !== null) ? bOrig + (b.stock as number) : Infinity;
+                                       const aOut = aMax === 0 ? 1 : 0;
+                                       const bOut = bMax === 0 ? 1 : 0;
+                                       if (aOut !== bOut) return aOut - bOut;
+                                       return a.name.localeCompare(b.name);
+                                    })
+                                    .map(item => {
+                                     const inCart = cart.find(c => c.id === item.id);
+                                     const qty = inCart ? inCart.qty : 0;
+                                     const originalItem = (modal?.originalCart || []).find((c: any) => c.id === item.id);
+                                     const originalQty = originalItem ? originalItem.qty : 0;
+                                     const hasStockLimit = item.stock !== undefined && item.stock !== null;
+                                     const maxAllowedQty = hasStockLimit ? originalQty + (item.stock as number) : Infinity;
+                                     const isOutOfStock = hasStockLimit && maxAllowedQty === 0;
+                                     const isAtMaxCapacity = hasStockLimit && qty >= maxAllowedQty;
 
-                                   return (
-                                     <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border min-w-0 w-full ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30 opacity-60' : 'bg-[#121824] border-[#2D3748]'}`}>
-                                        <div className="pr-2 flex-1 min-w-0">
-                                          <p className={`font-bold text-sm leading-tight mb-1 truncate ${isOutOfStock ? 'text-gray-600' : 'text-white'}`}>{item.name}</p>
-                                          <div className="flex items-center gap-2 shrink-0">
-                                            <p className="text-xs text-[#00D0FF] font-bold">₹{item.price}</p>
-                                            {hasStockLimit && <span className={`text-[8px] px-1.5 py-0.5 rounded ${isOutOfStock ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>{isOutOfStock ? 'Out' : `${item.stock} left`}</span>}
+                                     return (
+                                       <div key={item.id} className={`flex justify-between items-center p-3 rounded-xl border min-w-0 w-full ${isOutOfStock ? 'bg-[#0B0E14]/50 border-red-900/30 opacity-60' : 'bg-[#121824] border-[#2D3748]'}`}>
+                                          <div className="pr-2 flex-1 min-w-0">
+                                            <p className={`font-bold text-sm leading-tight mb-1 truncate ${isOutOfStock ? 'text-gray-600' : 'text-white'}`}>{item.name}</p>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                              <p className="text-xs text-[#00D0FF] font-bold">₹{item.price}</p>
+                                              {hasStockLimit && <span className={`text-[8px] px-1.5 py-0.5 rounded ${isOutOfStock ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>{isOutOfStock ? 'Out' : `${item.stock} left`}</span>}
+                                            </div>
                                           </div>
-                                        </div>
-                                        {isOutOfStock ? ( <div className="px-2 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-[9px] font-bold shrink-0">Empty</div> ) : qty > 0 ? (
-                                          <div className="flex items-center gap-1 bg-[#1A2235] px-1.5 py-1 rounded-lg shrink-0">
-                                             <button onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty - 1} : c).filter(c => c.qty > 0))} className="p-1 hover:text-white"><Minus size={14}/></button>
-                                             <span className="font-bold text-xs w-5 text-center">{qty}</span>
-                                             <button disabled={isAtMaxCapacity} onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c))} className="p-1 disabled:opacity-30 hover:text-white"><Plus size={14}/></button>
-                                          </div>
-                                        ) : ( <button onClick={() => setCart([...cart, { ...item, qty: 1 }])} className="px-3 py-1.5 bg-[#1A2235] rounded-lg text-xs font-bold hover:bg-[#00D0FF] hover:text-black shrink-0 transition-all">Add</button> )}
-                                     </div>
-                                   )
-                               })}
-                            </div>
-                         </div>
-                      </div>
+                                          {isOutOfStock ? ( <div className="px-2 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-[9px] font-bold shrink-0">Empty</div> ) : qty > 0 ? (
+                                            <div className="flex items-center gap-1 bg-[#1A2235] px-1.5 py-1 rounded-lg shrink-0">
+                                               <button onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty - 1} : c).filter(c => c.qty > 0))} className="p-1 hover:text-white"><Minus size={14}/></button>
+                                               <span className="font-bold text-xs w-5 text-center">{qty}</span>
+                                               <button disabled={isAtMaxCapacity} onClick={() => setCart(cart.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c))} className="p-1 disabled:opacity-30 hover:text-white"><Plus size={14}/></button>
+                                            </div>
+                                          ) : ( <button onClick={() => setCart([...cart, { ...item, qty: 1 }])} className="px-3 py-1.5 bg-[#1A2235] rounded-lg text-xs font-bold hover:bg-[#00D0FF] hover:text-black shrink-0 transition-all">Add</button> )}
+                                       </div>
+                                     )
+                                 })}
+                              </div>
+                           </div>
+                        </div>
 
-                      {/* RIGHT PANEL: Cart & Actions */}
-                      <div className="flex-1 lg:flex-none w-full lg:w-80 xl:w-96 flex flex-col shrink-0 bg-[#0B0E14] min-h-0 border-t lg:border-t-0 border-[#1E293B]">
-                         <div className="flex-1 flex flex-col min-h-0 p-3 sm:p-4">
-                            <h3 className="font-black text-gray-500 text-[10px] uppercase mb-3 shrink-0">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
-                            {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4 shrink-0">No items added yet.</p> : (
-                              <div className="space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 min-h-0 pr-2">
-                                {cart.map(c => (
-                                  <div key={c.id} className="flex justify-between items-center text-sm text-gray-300 min-w-0 w-full shrink-0">
-                                     <span className={`truncate pr-2 flex-1 min-w-0 ${c.price === 0 ? 'text-red-400 line-through' : ''}`}>{c.qty}x {c.name}</span>
-                                     <div className="flex items-center gap-3 shrink-0">
-                                        <span className={`font-bold ${c.price === 0 ? 'text-red-400' : 'text-white'}`}>₹{(c.price || 0) * c.qty}</span>
-                                        <button onClick={() => setCart(cart.filter(item => item.id !== c.id))} className="text-red-500 hover:text-white transition-colors p-1" title="Remove from tab"><X size={14}/></button>
+                        {/* RIGHT PANEL: Cart */}
+                        <div className="w-full lg:w-80 xl:w-96 flex flex-col shrink-0 bg-[#0B0E14]">
+                           <div className="w-full p-4 lg:max-h-[50vh] lg:overflow-y-auto custom-scrollbar flex-1">
+                              <h3 className="font-black text-gray-500 text-[10px] uppercase mb-3 shrink-0">{modal.isWalkin ? "New Cart" : "Current Tab"}</h3>
+                              {cart.length === 0 ? <p className="text-xs text-gray-600 italic text-center py-4 shrink-0">No items added yet.</p> : (
+                                <div className="space-y-2 pr-2">
+                                  {cart.map(c => (
+                                    <div key={c.id} className="flex justify-between items-center text-sm text-gray-300 min-w-0 w-full shrink-0">
+                                       <span className={`truncate pr-2 flex-1 min-w-0 ${c.price === 0 ? 'text-red-400 line-through' : ''}`}>{c.qty}x {c.name}</span>
+                                       <div className="flex items-center gap-3 shrink-0">
+                                          <span className={`font-bold ${c.price === 0 ? 'text-red-400' : 'text-white'}`}>₹{(c.price || 0) * c.qty}</span>
+                                          <button onClick={() => setCart(cart.filter(item => item.id !== c.id))} className="text-red-500 hover:text-white transition-colors p-1" title="Remove from tab"><X size={14}/></button>
+                                       </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {modal.isWalkin && cart.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-[#1E293B] shrink-0">
+                                   <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Payment Method</label>
+                                   <select className="w-full mt-1.5 p-3 text-sm bg-[#1A2235] rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={fnbPayMethod} onChange={e => setFnbPayMethod(e.target.value)}>
+                                       <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                                   </select>
+                                   {fnbPayMethod === 'Split Payment' && <input type="number" className="w-full mt-3 p-3 bg-[#1A2235] rounded-xl outline-none font-bold text-sm border border-[#2D3748] focus:border-[#00D0FF]" placeholder="Cash Amount" value={fnbSplitCash || ''} onChange={e => setFnbSplitCash(Number(e.target.value))} />}
+                                </div>
+                              )}
+                           </div>
+                           
+                           <div className="p-4 border-t border-[#1E293B] shrink-0 bg-[#121824]">
+                              <div className="flex justify-between text-gray-400 mb-4 text-base"><span>Total:</span><span className="font-black text-white text-xl">₹{cart.reduce((sum, item) => sum + ((item.price || 0) * item.qty), 0)}</span></div>
+                              <button onClick={handleAddFNB} disabled={isProcessing || (modal.isWalkin && cart.length === 0)} className="w-full bg-[#00D0FF] text-black py-3 sm:py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">
+                                {isProcessing ? 'Processing...' : (modal.isWalkin ? 'Complete Sale' : 'Save Tab')}
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+                  ) : (
+                     // 🟢 ALL OTHER STANDARD MODALS
+                     <div className="p-4 sm:p-6 w-full max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        
+                        {modal.type === 'khata_hub' && (() => {
+                           const dueCustomers = Object.entries(balances).filter(([name, amount]) => amount > 0);
+                           
+                           return (
+                             <div className="space-y-4">
+                                {!khataReport ? (
+                                   <>
+                                      <p className="text-sm text-gray-400 mb-2">Select a customer to view their pending balance summary.</p>
+                                      <div className="space-y-2 pr-2 pb-4">
+                                         {dueCustomers.length === 0 ? (
+                                             <p className="text-gray-500 italic text-center text-sm py-4">No pending Khatas found.</p>
+                                         ) : (
+                                             dueCustomers.map(([cName, cAmt]) => (
+                                                <button key={cName} onClick={() => generateKhataReport(cName, cAmt)} className="w-full bg-[#0B0E14] border border-[#2D3748] hover:border-orange-500 p-4 rounded-xl flex justify-between items-center text-left transition-all">
+                                                   <span className="font-bold text-white text-base truncate pr-2">{cName}</span>
+                                                   <span className="text-orange-400 font-black text-sm shrink-0">₹{cAmt} Due</span>
+                                                </button>
+                                             ))
+                                         )}
+                                      </div>
+                                   </>
+                                ) : (
+                                   <>
+                                      <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words max-h-[300px] overflow-y-auto custom-scrollbar">
+                                         {khataReport.text}
+                                      </div>
+                                      
+                                      <div className="pt-3 mt-3 border-t border-[#1E293B]">
+                                         <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Settle Khata Balance</label>
+                                         <div className="flex gap-2 mt-1.5">
+                                            <select className="bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none flex-1 font-bold" value={khataSettleMethod} onChange={e => setKhataSettleMethod(e.target.value)}>
+                                               <option>Cash</option><option>UPI</option>
+                                            </select>
+                                            <button onClick={handleSettleKhata} disabled={isProcessing} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0">
+                                               Mark Paid
+                                            </button>
+                                         </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-3 pt-3">
+                                         <button onClick={() => setKhataReport(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 rounded-xl font-bold hover:text-white transition-all text-sm">Back to List</button>
+                                         <button onClick={() => { navigator.clipboard.writeText(khataReport.text); alert("Khata Summary copied to clipboard!"); }} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black hover:bg-white transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(0,208,255,0.3)]">
+                                           <Copy size={16}/> Copy Report
+                                         </button>
+                                      </div>
+                                   </>
+                                )}
+                             </div>
+                           );
+                        })()}
+
+                        {modal.type === 'members_hub' && (() => {
+                           const allMembers = cafeMenu.filter(i => String(i.category).startsWith('Membership - '));
+                           return (
+                             <div className="space-y-4">
+                                {!memberReport ? (
+                                   <>
+                                      <p className="text-sm text-gray-400 mb-2">Select a member to view their usage history and generate a WhatsApp summary.</p>
+                                      <div className="space-y-2 pb-4">
+                                         {allMembers.length === 0 ? (
+                                             <p className="text-gray-500 italic text-center text-sm py-4">No active memberships found in Inventory.</p>
+                                         ) : (
+                                             allMembers.map(m => {
+                                               const sysType = m.category.replace('Membership - ', '');
+                                               const cleanName = m.name.split('|')[0].trim();
+                                               const expMatch = m.name.match(/Exp:\s*(\d{4}-\d{2}-\d{2})/i);
+                                               let isExpired = false;
+                                               if (expMatch) {
+                                                  const expDate = new Date(expMatch[1]);
+                                                  const today = new Date(getTodayString());
+                                                  if (expDate < today) isExpired = true;
+                                               }
+                                               return (
+                                                 <button key={m.id} onClick={() => generateMemberReport(m.name, Number(m.stock || 0), sysType)} className={`w-full bg-[#0B0E14] border transition-all p-4 rounded-xl flex justify-between items-center text-left ${isExpired ? 'border-red-500/30 opacity-60' : 'hover:bg-[#1A2235] border-[#2D3748] hover:border-purple-500'}`}>
+                                                     <div className="flex flex-col min-w-0 pr-2">
+                                                        <span className="font-bold text-white text-base truncate">{cleanName}</span>
+                                                        <span className="text-[10px] text-gray-500 font-bold uppercase truncate">{sysType} {isExpired ? '- EXPIRED' : ''}</span>
+                                                     </div>
+                                                     <span className={`${isExpired ? 'text-red-400' : 'text-purple-400'} font-black text-sm shrink-0`}>{m.stock} Hrs Left</span>
+                                                 </button>
+                                               );
+                                             })
+                                         )}
+                                      </div>
+                                   </>
+                                ) : (
+                                   <>
+                                      <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words">
+                                         {memberReport}
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3 pt-2">
+                                         <button onClick={() => setMemberReport('')} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 rounded-xl font-bold hover:text-white transition-all text-sm">Back to List</button>
+                                         <button onClick={() => { navigator.clipboard.writeText(memberReport); alert("Summary copied to clipboard!"); }} className="w-full bg-purple-500 text-white py-3.5 rounded-xl font-black hover:bg-purple-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                                           <Copy size={16}/> Copy & WhatsApp
+                                         </button>
+                                      </div>
+                                   </>
+                                )}
+                             </div>
+                           );
+                        })()}
+                        
+                        {modal.type === 'checkout' && (() => {
+                           const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
+                           const targetCategory = `Membership - ${sysType}`;
+                           const validMembers = cafeMenu.filter(i => i.category === targetCategory);
+
+                           return (
+                             <div className="space-y-4 pb-4">
+                               <div className="bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] space-y-2 text-sm">
+                                 <div className="flex justify-between font-bold border-b border-[#1E293B] pb-2 text-[#00D0FF]">
+                                   <span className="truncate pr-2">{modal.session.customer}</span><span className="shrink-0">{modal.session.duration} Hrs Active</span>
+                                 </div>
+                                 {modal.holdTotal > 0 && <div className="flex justify-between text-orange-400 text-xs font-bold mt-2"><span>Includes transfers: {modal.holdNames}</span></div>}
+                                 
+                                 <div className="flex justify-between text-gray-400 mt-2">
+                                    <span>Combined Gaming:</span>
+                                    <span className={useMembership ? 'text-gray-500 line-through' : 'text-white'}>₹{modal.combinedGamingTotal}</span>
+                                 </div>
+                                 
+                                 <div className="pt-2 border-t border-[#1E293B]">
+                                   <div className="flex justify-between text-gray-400 mb-1">
+                                     <span>Combined F&B:</span>
+                                     <span className="font-bold text-white">₹{modal.combinedFnbTotal}</span>
+                                   </div>
+                                   {aggregatedFnb.length > 0 && (
+                                     <div className="bg-[#1A2235] p-2 rounded-xl mt-2 text-[10px] text-[#00D0FF] font-bold space-y-1">
+                                       {aggregatedFnb.map((itemName: string, i: number) => (
+                                          <div key={i} className="flex justify-between"><span className="truncate">{itemName}</span></div>
+                                       ))}
                                      </div>
-                                  </div>
-                                ))}
+                                   )}
+                                 </div>
+                               </div>
+
+                               <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl transition-all">
+                                  <label className="flex items-center gap-2 text-purple-400 font-bold text-sm cursor-pointer">
+                                     <input type="checkbox" className="accent-purple-500 w-4 h-4 shrink-0" checked={useMembership} onChange={e => {
+                                         setUseMembership(e.target.checked);
+                                         const prevDue = modal.prevDue;
+                                         if (e.target.checked) {
+                                            const newTot = modal.combinedFnbTotal + prevDue;
+                                            setManualTotal(newTot);
+                                         } else {
+                                            const newTot = modal.combinedGamingTotal + modal.combinedFnbTotal + prevDue;
+                                            setManualTotal(newTot);
+                                         }
+                                     }} />
+                                     <span className="truncate">Deduct from <span className="text-white bg-purple-500/20 px-1 rounded">{sysType}</span> Memb.</span>
+                                  </label>
+                                  
+                                  {useMembership && (
+                                     <div className="mt-3 pt-3 border-t border-purple-500/20">
+                                        <select className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-purple-500/50 outline-none text-white focus:border-purple-400"
+                                                value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)}>
+                                           <option value="" disabled>Select Valid Member...</option>
+                                           {validMembers.length === 0 && <option disabled>No valid {sysType} memberships found.</option>}
+                                           {validMembers.map(m => {
+                                              const expMatch = m.name.match(/Exp:\s*(\d{4}-\d{2}-\d{2})/i);
+                                              let isExpired = false;
+                                              if (expMatch) {
+                                                 const expDate = new Date(expMatch[1]);
+                                                 const today = new Date(getTodayString());
+                                                 if (expDate < today) isExpired = true;
+                                              }
+                                              
+                                              return (
+                                                 <option key={m.id} value={m.id} disabled={isExpired || Number(m.stock) <= 0}>
+                                                    {m.name.split('|')[0].trim()} ({m.stock} Hrs Left) {isExpired ? ' ❌ EXPIRED' : ''}
+                                                 </option>
+                                              )
+                                           })}
+                                        </select>
+                                     </div>
+                                  )}
+                               </div>
+
+                               <div className="pt-3 mt-3 border-t border-[#1E293B]">
+                                   {modal.prevDue > 0 && (
+                                     <div className="flex justify-between items-center mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+                                         <span className="text-xs text-orange-400 font-bold uppercase tracking-widest">Previous Due / Khata</span>
+                                         <span className="text-orange-400 font-black text-lg">₹{modal.prevDue}</span>
+                                     </div>
+                                   )}
+                                   <div>
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Final Grand Total (Includes Due)</label>
+                                      <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
+                                          <div className="px-3 text-[#00D0FF] shrink-0"><IndianRupee size={18}/></div>
+                                          <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => setManualTotal(e.target.value)} />
+                                      </div>
+                                   </div>
+
+                                   <label className="flex items-center gap-2 text-orange-400 font-bold text-sm cursor-pointer mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl transition-all">
+                                      <input type="checkbox" className="accent-orange-500 w-4 h-4 shrink-0" checked={useKhata} onChange={e => {
+                                          setUseKhata(e.target.checked);
+                                          if (e.target.checked) {
+                                              setCheckoutCash('');
+                                              setCheckoutUPI('');
+                                          }
+                                      }} />
+                                      <span className="truncate">Partial Payment / Pay Later (Khata)</span>
+                                   </label>
+
+                                   {useKhata ? (
+                                      <div className="grid grid-cols-2 gap-3 mt-4">
+                                         <div>
+                                           <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Cash Received</label>
+                                           <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-emerald-500 outline-none font-bold" value={checkoutCash} onChange={e => setCheckoutCash(e.target.value)} placeholder="0" />
+                                         </div>
+                                         <div>
+                                           <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">UPI Received</label>
+                                           <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold" value={checkoutUPI} onChange={e => setCheckoutUPI(e.target.value)} placeholder="0" />
+                                         </div>
+                                         <div className="col-span-2">
+                                            {(() => {
+                                                const totalGiven = Number(checkoutCash) + Number(checkoutUPI);
+                                                const newDue = Number(manualTotal) - totalGiven;
+                                                if (newDue > 0) return <div className="mt-1 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-center"><p className="text-xs text-orange-400 font-bold">₹{newDue} will be added to Khata (Due)</p></div>;
+                                                if (newDue < 0) return <div className="mt-1 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-center"><p className="text-xs text-emerald-400 font-bold">₹{Math.abs(newDue)} Advance / Change to return</p></div>;
+                                                return <div className="mt-1 p-3 bg-gray-800/30 border border-gray-700 rounded-xl text-center"><p className="text-xs text-gray-500 font-bold">Bill Settled Fully</p></div>;
+                                            })()}
+                                         </div>
+                                      </div>
+                                   ) : (
+                                      <div className="mt-4">
+                                        <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
+                                        <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                                            <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                                        </select>
+                                        {payMethod === 'Split Payment' && (
+                                          <div className="p-3 mt-2 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
+                                            <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" value={splitCash || ''} onChange={e => setSplitCash(Number(e.target.value))} />
+                                            <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                   )}
+                               </div>
+                               
+                               <button onClick={handleCheckout} disabled={isProcessing || (useMembership && !selectedMemberId)} className="w-full bg-[#EF4444] text-white py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-red-600 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] mt-2">
+                                 {isProcessing ? 'Processing...' : 'Confirm & Close'}
+                               </button>
+                             </div>
+                           );
+                        })()}
+
+                        {modal.type === 'checkin' && (
+                          <div className="space-y-4 pb-4">
+                            {modal.hasActive ? (
+                              <div className="bg-yellow-500/10 text-yellow-500 p-3 rounded-xl text-sm font-bold mb-4 text-center border border-yellow-500/20">System is currently Active. Creating a future reservation.</div>
+                            ) : (
+                              <div className="flex bg-[#0B0E14] rounded-xl p-1 border border-[#2D3748] mb-4">
+                                 <button type="button" onClick={() => setIsBookingMode(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${!isBookingMode ? 'bg-[#00D0FF]/20 text-[#00D0FF]' : 'text-gray-500 hover:text-white'}`}>Walk-In Now</button>
+                                 <button type="button" onClick={() => setIsBookingMode(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${isBookingMode ? 'bg-yellow-500/20 text-yellow-500' : 'text-gray-500 hover:text-white'}`}>Reserve for Later</button>
                               </div>
                             )}
                             
-                            {modal.isWalkin && cart.length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-[#1E293B] shrink-0">
-                                 <select className="w-full p-2.5 text-sm bg-[#1A2235] rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={fnbPayMethod} onChange={e => setFnbPayMethod(e.target.value)}>
-                                     <option>Cash</option><option>UPI</option><option>Split Payment</option>
-                                 </select>
-                                 {fnbPayMethod === 'Split Payment' && <input type="number" className="w-full mt-2 p-2.5 bg-[#1A2235] rounded-xl outline-none font-bold text-sm border border-[#2D3748] focus:border-[#00D0FF]" placeholder="Cash Amount" value={fnbSplitCash || ''} onChange={e => setFnbSplitCash(Number(e.target.value))} />}
-                              </div>
-                            )}
-                         </div>
-                         
-                         <div className="p-3 sm:p-4 border-t border-[#1E293B] shrink-0 bg-[#121824]">
-                            <div className="flex justify-between text-gray-400 mb-3 text-base"><span>Total:</span><span className="font-black text-white text-xl">₹{cart.reduce((sum, item) => sum + ((item.price || 0) * item.qty), 0)}</span></div>
-                            <button onClick={handleAddFNB} disabled={isProcessing || (modal.isWalkin && cart.length === 0)} className="w-full bg-[#00D0FF] text-black py-3 sm:py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.3)]">
-                              {isProcessing ? 'Processing...' : (modal.isWalkin ? 'Complete Sale' : 'Save Tab')}
-                            </button>
-                         </div>
-                      </div>
-                   </div>
-                ) : (
-                   // 🟢 ALL OTHER STANDARD MODALS
-                   <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-4">
-                      
-                      {modal.type === 'khata_hub' && (() => {
-                         const dueCustomers = Object.entries(balances).filter(([name, amount]) => amount > 0);
-                         
-                         return (
-                           <div className="space-y-4">
-                              {!khataReport ? (
-                                 <>
-                                    <p className="text-sm text-gray-400 mb-2">Select a customer to view their pending balance summary.</p>
-                                    <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-4">
-                                       {dueCustomers.length === 0 ? (
-                                           <p className="text-gray-500 italic text-center text-sm py-4">No pending Khatas found.</p>
-                                       ) : (
-                                           dueCustomers.map(([cName, cAmt]) => (
-                                              <button key={cName} onClick={() => generateKhataReport(cName, cAmt)} className="w-full bg-[#0B0E14] border border-[#2D3748] hover:border-orange-500 p-4 rounded-xl flex justify-between items-center text-left transition-all">
-                                                 <span className="font-bold text-white text-base truncate pr-2">{cName}</span>
-                                                 <span className="text-orange-400 font-black text-sm shrink-0">₹{cAmt} Due</span>
-                                              </button>
-                                           ))
-                                       )}
-                                    </div>
-                                 </>
-                              ) : (
-                                 <>
-                                    <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words max-h-[300px] overflow-y-auto custom-scrollbar">
-                                       {khataReport.text}
-                                    </div>
-                                    
-                                    <div className="pt-3 mt-3 border-t border-[#1E293B]">
-                                       <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Settle Khata Balance</label>
-                                       <div className="flex gap-2 mt-1.5">
-                                          <select className="bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none flex-1 font-bold" value={khataSettleMethod} onChange={e => setKhataSettleMethod(e.target.value)}>
-                                             <option>Cash</option><option>UPI</option>
-                                          </select>
-                                          <button onClick={handleSettleKhata} disabled={isProcessing} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0">
-                                             Mark Paid
-                                          </button>
-                                       </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3 pt-3">
-                                       <button onClick={() => setKhataReport(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 rounded-xl font-bold hover:text-white transition-all text-sm">Back to List</button>
-                                       <button onClick={() => { navigator.clipboard.writeText(khataReport.text); alert("Khata Summary copied to clipboard!"); }} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black hover:bg-white transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(0,208,255,0.3)]">
-                                         <Copy size={16}/> Copy Report
-                                       </button>
-                                    </div>
-                                 </>
-                              )}
-                           </div>
-                         );
-                      })()}
-
-                      {modal.type === 'members_hub' && (() => {
-                         const allMembers = cafeMenu.filter(i => String(i.category).startsWith('Membership - '));
-                         return (
-                           <div className="space-y-4">
-                              {!memberReport ? (
-                                 <>
-                                    <p className="text-sm text-gray-400 mb-2">Select a member to view their usage history and generate a WhatsApp summary.</p>
-                                    <div className="space-y-2 pb-4">
-                                       {allMembers.length === 0 ? (
-                                           <p className="text-gray-500 italic text-center text-sm py-4">No active memberships found in Inventory.</p>
-                                       ) : (
-                                           allMembers.map(m => {
-                                             const sysType = m.category.replace('Membership - ', '');
-                                             const cleanName = m.name.split('|')[0].trim();
-                                             const expMatch = m.name.match(/Exp:\s*(\d{4}-\d{2}-\d{2})/i);
-                                             let isExpired = false;
-                                             if (expMatch) {
-                                                const expDate = new Date(expMatch[1]);
-                                                const today = new Date(getTodayString());
-                                                if (expDate < today) isExpired = true;
-                                             }
-                                             return (
-                                               <button key={m.id} onClick={() => generateMemberReport(m.name, Number(m.stock || 0), sysType)} className={`w-full bg-[#0B0E14] border transition-all p-4 rounded-xl flex justify-between items-center text-left ${isExpired ? 'border-red-500/30 opacity-60' : 'hover:bg-[#1A2235] border-[#2D3748] hover:border-purple-500'}`}>
-                                                   <div className="flex flex-col min-w-0 pr-2">
-                                                      <span className="font-bold text-white text-base truncate">{cleanName}</span>
-                                                      <span className="text-[10px] text-gray-500 font-bold uppercase truncate">{sysType} {isExpired ? '- EXPIRED' : ''}</span>
-                                                   </div>
-                                                   <span className={`${isExpired ? 'text-red-400' : 'text-purple-400'} font-black text-sm shrink-0`}>{m.stock} Hrs Left</span>
-                                               </button>
-                                             );
-                                           })
-                                       )}
-                                    </div>
-                                 </>
-                              ) : (
-                                 <>
-                                    <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words">
-                                       {memberReport}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 pt-2">
-                                       <button onClick={() => setMemberReport('')} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 rounded-xl font-bold hover:text-white transition-all text-sm">Back to List</button>
-                                       <button onClick={() => { navigator.clipboard.writeText(memberReport); alert("Summary copied to clipboard!"); }} className="w-full bg-purple-500 text-white py-3.5 rounded-xl font-black hover:bg-purple-400 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                                         <Copy size={16}/> Copy & WhatsApp
-                                       </button>
-                                    </div>
-                                 </>
-                              )}
-                           </div>
-                         );
-                      })()}
-                      
-                      {modal.type === 'checkout' && (() => {
-                         const sysType = SYSTEMS.find(x => x.id === modal.session.system)?.type;
-                         const targetCategory = `Membership - ${sysType}`;
-                         const validMembers = cafeMenu.filter(i => i.category === targetCategory);
-
-                         return (
-                           <div className="space-y-4 pb-4">
-                             <div className="bg-[#0B0E14] p-4 rounded-2xl border border-[#2D3748] space-y-2 text-sm">
-                               <div className="flex justify-between font-bold border-b border-[#1E293B] pb-2 text-[#00D0FF]">
-                                 <span className="truncate pr-2">{modal.session.customer}</span><span className="shrink-0">{modal.session.duration} Hrs Active</span>
-                               </div>
-                               {modal.holdTotal > 0 && <div className="flex justify-between text-orange-400 text-xs font-bold mt-2"><span>Includes transfers: {modal.holdNames}</span></div>}
-                               
-                               <div className="flex justify-between text-gray-400 mt-2">
-                                  <span>Combined Gaming:</span>
-                                  <span className={useMembership ? 'text-gray-500 line-through' : 'text-white'}>₹{modal.combinedGamingTotal}</span>
-                               </div>
-                               
-                               <div className="pt-2 border-t border-[#1E293B]">
-                                 <div className="flex justify-between text-gray-400 mb-1">
-                                   <span>Combined F&B:</span>
-                                   <span className="font-bold text-white">₹{modal.combinedFnbTotal}</span>
-                                 </div>
-                                 {aggregatedFnb.length > 0 && (
-                                   <div className="bg-[#1A2235] p-2 rounded-xl mt-2 text-[10px] text-[#00D0FF] font-bold space-y-1">
-                                     {aggregatedFnb.map((itemName: string, i: number) => (
-                                        <div key={i} className="flex justify-between"><span className="truncate">{itemName}</span></div>
-                                     ))}
-                                   </div>
-                                 )}
-                               </div>
-                             </div>
-
-                             <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl transition-all">
-                                <label className="flex items-center gap-2 text-purple-400 font-bold text-sm cursor-pointer">
-                                   <input type="checkbox" className="accent-purple-500 w-4 h-4 shrink-0" checked={useMembership} onChange={e => {
-                                       setUseMembership(e.target.checked);
-                                       const prevDue = modal.prevDue;
-                                       if (e.target.checked) {
-                                          const newTot = modal.combinedFnbTotal + prevDue;
-                                          setManualTotal(newTot);
-                                       } else {
-                                          const newTot = modal.combinedGamingTotal + modal.combinedFnbTotal + prevDue;
-                                          setManualTotal(newTot);
-                                       }
-                                   }} />
-                                   <span className="truncate">Deduct from <span className="text-white bg-purple-500/20 px-1 rounded">{sysType}</span> Memb.</span>
-                                </label>
-                                
-                                {useMembership && (
-                                   <div className="mt-3 pt-3 border-t border-purple-500/20">
-                                      <select className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-purple-500/50 outline-none text-white focus:border-purple-400"
-                                              value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)}>
-                                         <option value="" disabled>Select Valid Member...</option>
-                                         {validMembers.length === 0 && <option disabled>No valid {sysType} memberships found.</option>}
-                                         {validMembers.map(m => {
-                                            const expMatch = m.name.match(/Exp:\s*(\d{4}-\d{2}-\d{2})/i);
-                                            let isExpired = false;
-                                            if (expMatch) {
-                                               const expDate = new Date(expMatch[1]);
-                                               const today = new Date(getTodayString());
-                                               if (expDate < today) isExpired = true;
-                                            }
-                                            
-                                            return (
-                                               <option key={m.id} value={m.id} disabled={isExpired || Number(m.stock) <= 0}>
-                                                  {m.name.split('|')[0].trim()} ({m.stock} Hrs Left) {isExpired ? ' ❌ EXPIRED' : ''}
-                                               </option>
-                                            )
-                                         })}
-                                      </select>
-                                   </div>
-                                )}
-                             </div>
-
-                             <div className="pt-3 mt-3 border-t border-[#1E293B]">
-                                 {modal.prevDue > 0 && (
-                                   <div className="flex justify-between items-center mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl">
-                                       <span className="text-xs text-orange-400 font-bold uppercase tracking-widest">Previous Due / Khata</span>
-                                       <span className="text-orange-400 font-black text-lg">₹{modal.prevDue}</span>
-                                   </div>
-                                 )}
-                                 <div>
-                                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Final Grand Total (Includes Due)</label>
-                                    <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
-                                        <div className="px-3 text-[#00D0FF] shrink-0"><IndianRupee size={18}/></div>
-                                        <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={manualTotal} onChange={e => setManualTotal(e.target.value)} />
-                                    </div>
-                                 </div>
-
-                                 <label className="flex items-center gap-2 text-orange-400 font-bold text-sm cursor-pointer mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl transition-all">
-                                    <input type="checkbox" className="accent-orange-500 w-4 h-4 shrink-0" checked={useKhata} onChange={e => {
-                                        setUseKhata(e.target.checked);
-                                        if (e.target.checked) {
-                                            setCheckoutCash('');
-                                            setCheckoutUPI('');
-                                        }
-                                    }} />
-                                    <span className="truncate">Partial Payment / Pay Later (Khata)</span>
-                                 </label>
-
-                                 {useKhata ? (
-                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                       <div>
-                                         <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Cash Received</label>
-                                         <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-emerald-500 outline-none font-bold" value={checkoutCash} onChange={e => setCheckoutCash(e.target.value)} placeholder="0" />
-                                       </div>
-                                       <div>
-                                         <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">UPI Received</label>
-                                         <input type="number" className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none font-bold" value={checkoutUPI} onChange={e => setCheckoutUPI(e.target.value)} placeholder="0" />
-                                       </div>
-                                       <div className="col-span-2">
-                                          {(() => {
-                                              const totalGiven = Number(checkoutCash) + Number(checkoutUPI);
-                                              const newDue = Number(manualTotal) - totalGiven;
-                                              if (newDue > 0) return <div className="mt-1 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-center"><p className="text-xs text-orange-400 font-bold">₹{newDue} will be added to Khata (Due)</p></div>;
-                                              if (newDue < 0) return <div className="mt-1 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-center"><p className="text-xs text-emerald-400 font-bold">₹{Math.abs(newDue)} Advance / Change to return</p></div>;
-                                              return <div className="mt-1 p-3 bg-gray-800/30 border border-gray-700 rounded-xl text-center"><p className="text-xs text-gray-500 font-bold">Bill Settled Fully</p></div>;
-                                          })()}
-                                       </div>
-                                    </div>
-                                 ) : (
-                                    <div className="mt-4">
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
-                                      <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
-                                          <option>Cash</option><option>UPI</option><option>Split Payment</option>
-                                      </select>
-                                      {payMethod === 'Split Payment' && (
-                                        <div className="p-3 mt-2 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
-                                          <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" value={splitCash || ''} onChange={e => setSplitCash(Number(e.target.value))} />
-                                          <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(manualTotal) - splitCash)} will be marked UPI.</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                 )}
-                             </div>
-                             
-                             <button onClick={handleCheckout} disabled={isProcessing || (useMembership && !selectedMemberId)} className="w-full bg-[#EF4444] text-white py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-red-600 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] mt-2">
-                               {isProcessing ? 'Processing...' : 'Confirm & Close'}
-                             </button>
-                           </div>
-                         );
-                      })()}
-
-                      {modal.type === 'checkin' && (
-                        <div className="space-y-4 pb-4">
-                          {modal.hasActive ? (
-                            <div className="bg-yellow-500/10 text-yellow-500 p-3 rounded-xl text-sm font-bold mb-4 text-center border border-yellow-500/20">System is currently Active. Creating a future reservation.</div>
-                          ) : (
-                            <div className="flex bg-[#0B0E14] rounded-xl p-1 border border-[#2D3748] mb-4">
-                               <button type="button" onClick={() => setIsBookingMode(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${!isBookingMode ? 'bg-[#00D0FF]/20 text-[#00D0FF]' : 'text-gray-500 hover:text-white'}`}>Walk-In Now</button>
-                               <button type="button" onClick={() => setIsBookingMode(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${isBookingMode ? 'bg-yellow-500/20 text-yellow-500' : 'text-gray-500 hover:text-white'}`}>Reserve for Later</button>
-                            </div>
-                          )}
-                          
-                          <input className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder={(isBookingMode || modal.hasActive) ? "Gamer Name (Required)" : "Gamer Name"} value={name} onChange={e => setName(e.target.value)} autoFocus/>
-                          
-                          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">{(isBookingMode || modal.hasActive) ? 'Expected Arrival' : 'Start Time'}</label>
-                              <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={time} onChange={e => setTime(e.target.value)} />
-                            </div>
-                            <div>
-                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Duration</label>
-                              <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
-                                <span className="font-bold text-sm">{dur} Hrs</span>
-                                <button onClick={() => setDur(dur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {modal.sys.type === 'PS5' && (
-                            <div>
-                              <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
-                              <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Minus size={16}/></button>
-                                <span className="font-bold text-sm">{extra} Extra</span>
-                                <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Plus size={16}/></button>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="pt-4 border-t border-[#1E293B]">
-                            <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>Est Cost:</span><span className="font-black text-white text-lg">₹{getPrice(modal.sys.type, dur, extra)}</span></div>
-                            <button onClick={handleCheckIn} disabled={isProcessing || ((isBookingMode || modal.hasActive) && !name)} className={`w-full text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 transition-all ${(isBookingMode || modal.hasActive) ? 'bg-yellow-500 hover:bg-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'bg-[#00D0FF] hover:bg-white shadow-[0_0_15px_rgba(0,208,255,0.2)]'}`}>
-                              {isProcessing ? 'Processing...' : ((isBookingMode || modal.hasActive) ? 'Lock Reservation' : 'Start Session')}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {modal.type === 'misc_income' && (
-                         <div className="space-y-4 pb-4">
-                            <div className="bg-purple-900/20 text-purple-400 p-3 rounded-xl text-xs font-bold mb-2 border border-purple-500/20">
-                               Items logged here are excluded from F&B Profit margins.
-                            </div>
-                            <div>
-                               <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Item Description</label>
-                               <input type="text" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder="e.g., Game CD" value={miscDesc} onChange={e => setMiscDesc(e.target.value)} />
-                            </div>
-                            <div>
-                               <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Sale Amount</label>
-                               <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
-                                   <div className="px-3 text-[#00D0FF]"><IndianRupee size={18}/></div>
-                                   <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={miscAmount} onChange={e => setMiscAmount(e.target.value)} />
-                               </div>
-                            </div>
-                            <div>
-                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
-                              <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={miscPayMethod} onChange={e => setMiscPayMethod(e.target.value)}>
-                                  <option>Cash</option><option>UPI</option><option>Split Payment</option>
-                              </select>
-                            </div>
-                            {miscPayMethod === 'Split Payment' && (
-                              <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
-                                <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" onChange={e => setMiscSplitCash(Number(e.target.value))} />
-                                <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(miscAmount) - miscSplitCash)} will be marked UPI.</p>
-                              </div>
-                            )}
-                            <div className="pt-4 border-t border-[#1E293B]">
-                               <button onClick={handleAddMiscIncome} disabled={isProcessing || !miscAmount || !miscDesc} className="w-full bg-purple-500 text-white py-3.5 rounded-xl font-black text-sm hover:bg-purple-400 transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                                 Log Income
-                               </button>
-                            </div>
-                         </div>
-                      )}
-
-                      {modal.type === 'close_day' && (() => {
-                          const cleanFnbProfit = Math.round(modal.fnbProfit);
-                          const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + cleanFnbProfit;
-                          
-                          let reportText = `Today's income - ${getFormattedDateForReport()}\n\n`;
-                          reportText += `a. Cash - ${formatINR(modal.eodCash)}\n`;
-                          reportText += `b. UPI -  ${formatINR(modal.eodUPI)}\n`;
-                          reportText += `c. F&B sale - ${formatINR(modal.fnbRev)}\n`;
-                          reportText += `d. F&B profit- ${formatINR(cleanFnbProfit)}\n`;
-                          if (modal.miscRev > 0) reportText += `e. Retail/Misc - ${formatINR(modal.miscRev)}\n`;
-                          
-                          reportText += `\n${modal.miscRev > 0 ? 'A+B-C+D(Misc)' : 'A+B-C+D'} = Total Net - ${formatINR(finalTotal)}\n\n`;
-                          reportText += `Breakup:\n`;
-                          reportText += `PS5- ${formatINR(modal.ps5Rev)}\n`;
-                          reportText += `PC- ${formatINR(modal.pcRev)}\n`;
-                          reportText += `SIM- ${formatINR(modal.simRev)}`;
-
-                          return (
-                            <div className="space-y-4 pb-4">
-                               <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words">
-                                  {reportText}
-                               </div>
-
-                               <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-2">
-                                 <button onClick={() => setModal(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 sm:py-4 rounded-xl font-bold hover:text-white transition-all text-xs sm:text-sm">Dismiss</button>
-                                 <button onClick={() => { navigator.clipboard.writeText(reportText); alert("Report copied to clipboard!"); }} className="w-full bg-white text-black py-3.5 sm:py-4 rounded-xl font-black hover:bg-gray-200 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm">
-                                   <Copy size={16}/> Copy Report
-                                 </button>
-                               </div>
-                            </div>
-                          );
-                      })()}
-
-                      {/* 🟢 MASTER EDIT DETAILS MODAL */}
-                      {modal.type === 'edit_setup' && (
-                        <div className="space-y-4 pb-4">
-                          <div className="bg-red-900/20 text-red-400 p-3 rounded-xl text-xs font-bold mb-2 border border-red-500/20">
-                             Use this only to correct setup mistakes. Recalculates the entire bill automatically.
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Player Name</label>
-                            <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={editName} onChange={e => setEditName(e.target.value)} />
-                          </div>
-                          
-                          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Corrected Start Time</label>
-                              <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={editTime24} onChange={e => setEditTime24(e.target.value)} />
-                            </div>
-                            <div>
-                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Total Duration</label>
-                              <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
-                                <span className="font-bold text-sm">{dur} Hrs</span>
-                                <button onClick={() => setDur(dur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {modal.sys.type === 'PS5' && (
-                            <div>
-                              <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
-                              <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
-                                <span className="font-bold text-sm">{extra} Extra</span>
-                                <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
-                              </div>
-                            </div>
-                          )}
-                          <div className="pt-4 border-t border-[#1E293B]">
-                            <div className="flex justify-between text-gray-400 mb-3 text-sm">
-                              <span>Recalculated Cost:</span>
-                              <span className="font-black text-[#00D0FF] text-lg">₹{getPrice(modal.sys.type, dur, extra)}</span>
-                            </div>
-                            <button onClick={handleEditSetup} disabled={isProcessing || !editName} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Save Corrections</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {modal.type === 'extend' && (() => {
-                         const currentExtra = getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total));
-                         const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
-                         
-                         let addedCostPreview = 0;
-                         if (extendDur < 0) {
-                             const normalOld = getPrice(modal.sys.type, modal.session.duration, editExtra);
-                             const normalNew = getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra);
-                             addedCostPreview = normalNew - normalOld;
-                         } else if (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra)) {
-                             addedCostPreview = getPrice(modal.sys.type, extendDur, editExtra);
-                         } else {
-                             addedCostPreview = getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra) - Number(modal.session.total);
-                         }
-                             
-                         const projectedTotal = Number(modal.session.total) + addedCostPreview;
-                         const minAllowedExtend = -(modal.session.duration - 0.5);
-
-                         return (
-                            <div className="space-y-4 pb-4">
-                              <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] space-y-2 text-sm text-center">
-                                <p className="text-gray-400">Current Duration: <span className="text-white font-bold">{modal.session.duration} Hrs</span></p>
-                                <p className="text-gray-400">Current Game Cost: <span className="text-white font-bold">₹{Number(modal.session.total)}</span></p>
+                            <input className="w-full bg-[#0B0E14] p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder={(isBookingMode || modal.hasActive) ? "Gamer Name (Required)" : "Gamer Name"} value={name} onChange={e => setName(e.target.value)} autoFocus/>
+                            
+                            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">{(isBookingMode || modal.hasActive) ? 'Expected Arrival' : 'Start Time'}</label>
+                                <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={time} onChange={e => setTime(e.target.value)} />
                               </div>
                               <div>
-                                <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Add / Reduce Time</label>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Duration</label>
                                 <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                  <button onClick={() => setExtendDur(Math.max(minAllowedExtend, extendDur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={18}/></button>
-                                  <span className="font-bold text-sm">{extendDur > 0 ? '+' : ''}{extendDur} Hrs</span>
-                                  <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={18}/></button>
+                                  <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
+                                  <span className="font-bold text-sm">{dur} Hrs</span>
+                                  <button onClick={() => setDur(dur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
                                 </div>
-                              </div>
-                              
-                              {modal.sys.type === 'PS5' && (
-                                <div>
-                                  <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Controllers During This Time</label>
-                                  <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                    <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={18}/></button>
-                                    <span className="font-bold text-sm">{editExtra} Extra</span>
-                                    <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={18}/></button>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="pt-4 border-t border-[#1E293B]">
-                                <div className="flex justify-between text-gray-400 mb-1 text-sm">
-                                  <span>{addedCostPreview >= 0 ? 'Cost for Extension:' : 'Deduction / Refund:'}</span>
-                                  <span className={`font-bold text-md ${addedCostPreview >= 0 ? 'text-white' : 'text-orange-400'}`}>
-                                    {addedCostPreview >= 0 ? '+' : '-'} ₹{Math.abs(addedCostPreview)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-gray-400 mb-3 text-sm">
-                                  <span>New Total Cost:</span>
-                                  <span className="font-black text-[#00D0FF] text-lg">
-                                    ₹{projectedTotal}
-                                  </span>
-                                </div>
-                                <button onClick={handleExtend} disabled={isProcessing || extendDur === 0} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">
-                                  {extendDur >= 0 ? 'Confirm Extension' : 'Confirm Reduction'}
-                                </button>
                               </div>
                             </div>
-                         );
-                      })()}
+                            
+                            {modal.sys.type === 'PS5' && (
+                              <div>
+                                <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                                <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                                  <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Minus size={16}/></button>
+                                  <span className="font-bold text-sm">{extra} Extra</span>
+                                  <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Plus size={16}/></button>
+                                </div>
+                              </div>
+                            )}
 
-                      {modal.type === 'transfer' && (
-                        <div className="space-y-4 pb-4">
-                          <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] text-xs text-gray-400">
-                            Shift <span className="text-white font-bold">{modal.session.customer}</span>&apos;s bill to a new screen, or merge it.
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Target Screen</label>
-                            <select className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={transferTargetSysId} onChange={e => setTransferTargetSysId(e.target.value)}>
-                               <option value="" disabled>Select Target System</option>
-                               {SYSTEMS.filter(s => s.id !== modal.session.system).map(sys => {
-                                  const isActive = activeOrReserved.find(a => a.system === sys.id && a.status === 'Active');
-                                  return <option key={sys.id} value={sys.id}>{sys.id} - {isActive ? `MERGE with ${isActive.customer}` : 'AVAILABLE'}</option>
-                               })}
-                            </select>
-                          </div>
-                          {transferTargetSysId && !activeOrReserved.find(a => a.system === transferTargetSysId && a.status === 'Active') && SYSTEMS.find(x => x.id === transferTargetSysId) && (
                             <div className="pt-4 border-t border-[#1E293B]">
-                              <p className="text-[10px] text-[#00D0FF] font-bold uppercase mb-2">Setting Up New Screen</p>
-                              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                              <div className="flex justify-between text-gray-400 mb-3 text-sm"><span>Est Cost:</span><span className="font-black text-white text-lg">₹{getPrice(modal.sys.type, dur, extra)}</span></div>
+                              <button onClick={handleCheckIn} disabled={isProcessing || ((isBookingMode || modal.hasActive) && !name)} className={`w-full text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 transition-all ${(isBookingMode || modal.hasActive) ? 'bg-yellow-500 hover:bg-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'bg-[#00D0FF] hover:bg-white shadow-[0_0_15px_rgba(0,208,255,0.2)]'}`}>
+                                {isProcessing ? 'Processing...' : ((isBookingMode || modal.hasActive) ? 'Lock Reservation' : 'Start Session')}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {modal.type === 'misc_income' && (
+                           <div className="space-y-4 pb-4">
+                              <div className="bg-purple-900/20 text-purple-400 p-3 rounded-xl text-xs font-bold mb-2 border border-purple-500/20">
+                                 Items logged here are excluded from F&B Profit margins.
+                              </div>
+                              <div>
+                                 <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Item Description</label>
+                                 <input type="text" className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" placeholder="e.g., Game CD" value={miscDesc} onChange={e => setMiscDesc(e.target.value)} />
+                              </div>
+                              <div>
+                                 <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Sale Amount</label>
+                                 <div className="flex items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748] focus-within:border-[#00D0FF]">
+                                     <div className="px-3 text-[#00D0FF]"><IndianRupee size={18}/></div>
+                                     <input type="number" className="bg-transparent w-full font-black text-2xl outline-none text-white py-1" value={miscAmount} onChange={e => setMiscAmount(e.target.value)} />
+                                 </div>
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Payment Method</label>
+                                <select className="w-full mt-1 p-3 text-sm bg-[#0B0E14] rounded-xl border border-[#2D3748] outline-none" value={miscPayMethod} onChange={e => setMiscPayMethod(e.target.value)}>
+                                    <option>Cash</option><option>UPI</option><option>Split Payment</option>
+                                </select>
+                              </div>
+                              {miscPayMethod === 'Split Payment' && (
+                                <div className="p-3 bg-[#1A2235] rounded-xl border border-[#00D0FF]/50 text-sm">
+                                  <input type="number" className="w-full p-2 bg-[#0B0E14] rounded-lg outline-none font-bold" placeholder="Cash Amount" onChange={e => setMiscSplitCash(Number(e.target.value))} />
+                                  <p className="text-[10px] text-gray-400 mt-2">Remaining ₹{(Number(miscAmount) - miscSplitCash)} will be marked UPI.</p>
+                                </div>
+                              )}
+                              <div className="pt-4 border-t border-[#1E293B]">
+                                 <button onClick={handleAddMiscIncome} disabled={isProcessing || !miscAmount || !miscDesc} className="w-full bg-purple-500 text-white py-3.5 rounded-xl font-black text-sm hover:bg-purple-400 transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                                   Log Income
+                                 </button>
+                              </div>
+                           </div>
+                        )}
+
+                        {modal.type === 'close_day' && (() => {
+                            const cleanFnbProfit = Math.round(modal.fnbProfit);
+                            const finalTotal = modal.eodCash + modal.eodUPI - modal.fnbRev + cleanFnbProfit;
+                            
+                            let reportText = `Today's income - ${getFormattedDateForReport()}\n\n`;
+                            reportText += `a. Cash - ${formatINR(modal.eodCash)}\n`;
+                            reportText += `b. UPI -  ${formatINR(modal.eodUPI)}\n`;
+                            reportText += `c. F&B sale - ${formatINR(modal.fnbRev)}\n`;
+                            reportText += `d. F&B profit- ${formatINR(cleanFnbProfit)}\n`;
+                            if (modal.miscRev > 0) reportText += `e. Retail/Misc - ${formatINR(modal.miscRev)}\n`;
+                            
+                            reportText += `\n${modal.miscRev > 0 ? 'A+B-C+D(Misc)' : 'A+B-C+D'} = Total Net - ${formatINR(finalTotal)}\n\n`;
+                            reportText += `Breakup:\n`;
+                            reportText += `PS5- ${formatINR(modal.ps5Rev)}\n`;
+                            reportText += `PC- ${formatINR(modal.pcRev)}\n`;
+                            reportText += `SIM- ${formatINR(modal.simRev)}`;
+
+                            return (
+                              <div className="space-y-4 pb-4">
+                                 <div className="bg-[#0B0E14] border border-[#2D3748] p-4 sm:p-5 rounded-2xl font-mono text-xs sm:text-sm text-gray-300 whitespace-pre-wrap break-words">
+                                    {reportText}
+                                 </div>
+
+                                 <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-2">
+                                   <button onClick={() => setModal(null)} className="w-full bg-[#1A2235] text-gray-400 border border-[#2D3748] py-3.5 sm:py-4 rounded-xl font-bold hover:text-white transition-all text-xs sm:text-sm">Dismiss</button>
+                                   <button onClick={() => { navigator.clipboard.writeText(reportText); alert("Report copied to clipboard!"); }} className="w-full bg-white text-black py-3.5 sm:py-4 rounded-xl font-black hover:bg-gray-200 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                     <Copy size={16}/> Copy Report
+                                   </button>
+                                 </div>
+                              </div>
+                            );
+                        })()}
+
+                        {/* 🟢 MASTER EDIT DETAILS MODAL */}
+                        {modal.type === 'edit_setup' && (
+                          <div className="space-y-4 pb-4">
+                            <div className="bg-red-900/20 text-red-400 p-3 rounded-xl text-xs font-bold mb-2 border border-red-500/20">
+                               Use this only to correct setup mistakes. Recalculates the entire bill automatically.
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Player Name</label>
+                              <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={editName} onChange={e => setEditName(e.target.value)} />
+                            </div>
+                            
+                            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Corrected Start Time</label>
+                                <input className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none [color-scheme:dark]" type="time" value={editTime24} onChange={e => setEditTime24(e.target.value)} />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Total Duration</label>
+                                <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                                  <button onClick={() => setDur(Math.max(0.5, dur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
+                                  <span className="font-bold text-sm">{dur} Hrs</span>
+                                  <button onClick={() => setDur(dur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {modal.sys.type === 'PS5' && (
+                              <div>
+                                <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                                <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                                  <button onClick={() => setExtra(Math.max(0, extra - 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
+                                  <span className="font-bold text-sm">{extra} Extra</span>
+                                  <button onClick={() => setExtra(Math.min(3, extra + 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
+                                </div>
+                              </div>
+                            )}
+                            <div className="pt-4 border-t border-[#1E293B]">
+                              <div className="flex justify-between text-gray-400 mb-3 text-sm">
+                                <span>Recalculated Cost:</span>
+                                <span className="font-black text-[#00D0FF] text-lg">₹{getPrice(modal.sys.type, dur, extra)}</span>
+                              </div>
+                              <button onClick={handleEditSetup} disabled={isProcessing || !editName} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">Save Corrections</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {modal.type === 'extend' && (() => {
+                           const currentExtra = getExtraFromTotal(modal.sys.type, modal.session.duration, Number(modal.session.total));
+                           const isHybrid = Number(modal.session.total) !== getPrice(modal.sys.type, modal.session.duration, currentExtra);
+                           
+                           let addedCostPreview = 0;
+                           if (extendDur < 0) {
+                               const normalOld = getPrice(modal.sys.type, modal.session.duration, editExtra);
+                               const normalNew = getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra);
+                               addedCostPreview = normalNew - normalOld;
+                           } else if (isHybrid || (modal.sys.type === 'PS5' && editExtra !== currentExtra)) {
+                               addedCostPreview = getPrice(modal.sys.type, extendDur, editExtra);
+                           } else {
+                               addedCostPreview = getPrice(modal.sys.type, modal.session.duration + extendDur, editExtra) - Number(modal.session.total);
+                           }
+                               
+                           const projectedTotal = Number(modal.session.total) + addedCostPreview;
+                           const minAllowedExtend = -(modal.session.duration - 0.5);
+
+                           return (
+                              <div className="space-y-4 pb-4">
+                                <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] space-y-2 text-sm text-center">
+                                  <p className="text-gray-400">Current Duration: <span className="text-white font-bold">{modal.session.duration} Hrs</span></p>
+                                  <p className="text-gray-400">Current Game Cost: <span className="text-white font-bold">₹{Number(modal.session.total)}</span></p>
+                                </div>
                                 <div>
-                                  <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">New Duration</label>
+                                  <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Add / Reduce Time</label>
                                   <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                    <button onClick={() => setMigrateDur(Math.max(0.5, migrateDur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
-                                    <span className="font-bold text-sm">{migrateDur} Hrs</span>
-                                    <button onClick={() => setMigrateDur(migrateDur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
+                                    <button onClick={() => setExtendDur(Math.max(minAllowedExtend, extendDur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={18}/></button>
+                                    <span className="font-bold text-sm">{extendDur > 0 ? '+' : ''}{extendDur} Hrs</span>
+                                    <button onClick={() => setExtendDur(extendDur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={18}/></button>
                                   </div>
                                 </div>
                                 
-                                {SYSTEMS.find(x => x.id === transferTargetSysId)?.type === 'PS5' && (
+                                {modal.sys.type === 'PS5' && (
                                   <div>
-                                    <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                                    <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Controllers During This Time</label>
                                     <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
-                                      <button onClick={() => setMigrateExtra(Math.max(0, migrateExtra - 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Minus size={16}/></button>
-                                      <span className="font-bold text-sm">{migrateExtra} Extra</span>
-                                      <button onClick={() => setMigrateExtra(Math.min(3, migrateExtra + 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Plus size={16}/></button>
+                                      <button onClick={() => setEditExtra(Math.max(0, editExtra - 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={18}/></button>
+                                      <span className="font-bold text-sm">{editExtra} Extra</span>
+                                      <button onClick={() => setEditExtra(Math.min(3, editExtra + 1))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={18}/></button>
                                     </div>
                                   </div>
                                 )}
+
+                                <div className="pt-4 border-t border-[#1E293B]">
+                                  <div className="flex justify-between text-gray-400 mb-1 text-sm">
+                                    <span>{addedCostPreview >= 0 ? 'Cost for Extension:' : 'Deduction / Refund:'}</span>
+                                    <span className={`font-bold text-md ${addedCostPreview >= 0 ? 'text-white' : 'text-orange-400'}`}>
+                                      {addedCostPreview >= 0 ? '+' : '-'} ₹{Math.abs(addedCostPreview)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-gray-400 mb-3 text-sm">
+                                    <span>New Total Cost:</span>
+                                    <span className="font-black text-[#00D0FF] text-lg">
+                                      ₹{projectedTotal}
+                                    </span>
+                                  </div>
+                                  <button onClick={handleExtend} disabled={isProcessing || extendDur === 0} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm disabled:opacity-50 hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)]">
+                                    {extendDur >= 0 ? 'Confirm Extension' : 'Confirm Reduction'}
+                                  </button>
+                                </div>
                               </div>
+                           );
+                        })()}
+
+                        {modal.type === 'transfer' && (
+                          <div className="space-y-4 pb-4">
+                            <div className="bg-[#0B0E14] p-4 rounded-xl border border-[#2D3748] text-xs text-gray-400">
+                              Shift <span className="text-white font-bold">{modal.session.customer}</span>&apos;s bill to a new screen, or merge it.
                             </div>
-                          )}
-                          <button onClick={handleTransferConfirm} disabled={!transferTargetSysId || isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)] mt-2">Confirm Transfer</button>
-                        </div>
-                      )}
-                   </div>
-                )}
+                            <div>
+                              <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">Target Screen</label>
+                              <select className="w-full bg-[#0B0E14] mt-1 p-3 text-sm rounded-xl border border-[#2D3748] focus:border-[#00D0FF] outline-none" value={transferTargetSysId} onChange={e => setTransferTargetSysId(e.target.value)}>
+                                 <option value="" disabled>Select Target System</option>
+                                 {SYSTEMS.filter(s => s.id !== modal.session.system).map(sys => {
+                                    const isActive = activeOrReserved.find(a => a.system === sys.id && a.status === 'Active');
+                                    return <option key={sys.id} value={sys.id}>{sys.id} - {isActive ? `MERGE with ${isActive.customer}` : 'AVAILABLE'}</option>
+                                 })}
+                              </select>
+                            </div>
+                            {transferTargetSysId && !activeOrReserved.find(a => a.system === transferTargetSysId && a.status === 'Active') && SYSTEMS.find(x => x.id === transferTargetSysId) && (
+                              <div className="pt-4 border-t border-[#1E293B]">
+                                <p className="text-[10px] text-[#00D0FF] font-bold uppercase mb-2">Setting Up New Screen</p>
+                                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-[10px] text-gray-500 font-bold uppercase ml-1">New Duration</label>
+                                    <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                                      <button onClick={() => setMigrateDur(Math.max(0.5, migrateDur - 0.5))} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Minus size={16}/></button>
+                                      <span className="font-bold text-sm">{migrateDur} Hrs</span>
+                                      <button onClick={() => setMigrateDur(migrateDur + 0.5)} className="p-2 hover:text-[#00D0FF] bg-[#1A2235] rounded-lg"><Plus size={16}/></button>
+                                    </div>
+                                  </div>
+                                  
+                                  {SYSTEMS.find(x => x.id === transferTargetSysId)?.type === 'PS5' && (
+                                    <div>
+                                      <label className="text-[10px] text-[#00D0FF] font-bold uppercase ml-1">Extra Controllers</label>
+                                      <div className="flex justify-between items-center bg-[#0B0E14] mt-1 p-2 rounded-xl border border-[#2D3748]">
+                                        <button onClick={() => setMigrateExtra(Math.max(0, migrateExtra - 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Minus size={16}/></button>
+                                        <span className="font-bold text-sm">{migrateExtra} Extra</span>
+                                        <button onClick={() => setMigrateExtra(Math.min(3, migrateExtra + 1))} className="p-2 bg-[#1A2235] rounded-lg hover:text-white"><Plus size={16}/></button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            <button onClick={handleTransferConfirm} disabled={!transferTargetSysId || isProcessing} className="w-full bg-[#00D0FF] text-black py-3.5 rounded-xl font-black text-sm hover:bg-white transition-all shadow-[0_0_15px_rgba(0,208,255,0.2)] mt-2">Confirm Transfer</button>
+                          </div>
+                        )}
+                     </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
